@@ -13,10 +13,6 @@
 /bin/
 /dist/
 
-# Go-specific files
-/go.sum
-/go.mod
-
 # Temporary files
 *.log
 *.tmp
