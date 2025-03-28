@@ -1,0 +1,46 @@
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+
+# Build artifacts
+/build/
+/bin/
+/dist/
+
+# Go-specific files
+/go.sum
+/go.mod
+
+# Temporary files
+*.log
+*.tmp
+*.swp
+*.swo
+*.DS_Store
+*.fuse_hidden*
+.fuse_hidden*
+**/.fuse_hidden*
+
+# Compiled object files
+*.o
+*.a
+
+# Coverage and test results
+*.cover
+*.cov
+*.prof
+*.test
+
+# IDE/editor specific files
+.vscode/
+.idea/
+*.iml
+
+# Dependency directories (if using vendoring)
+vendor/
