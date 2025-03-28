@@ -36,7 +36,7 @@ func LogMessage(message, level string) {
 }
 
 func LogMessageToFile(message, level, logType string) error {
-	if !ShouldLogData() {
+	if !AppConfig().LogData {
 		return nil
 	}
 

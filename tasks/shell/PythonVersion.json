@@ -1,0 +1,26 @@
+{
+  "name": "PythonVersion",
+  "exection": {
+    "interval": {
+      "years": 0,
+      "months": 0,
+      "weeks": 0,
+      "days": 0,
+      "hours": 0,
+      "minutes": 0,
+      "seconds": 2
+    },
+    "delay": {
+      "years": 0,
+      "months": 0,
+      "weeks": 0,
+      "days": 0,
+      "hours": 0,
+      "minutes": 0,
+      "seconds": 0
+    },
+    "run_before": "",
+    "run_after": ""
+  },
+  "command": "/usr/bin/python3 --version"
+}

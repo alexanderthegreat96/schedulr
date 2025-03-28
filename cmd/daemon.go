@@ -18,8 +18,10 @@ var daemonCmd = &cobra.Command{
 		core.InitLogger()
 		core.SetupGracefulShutdown()
 
-		core.StartLogWiper(core.AppLogFilePath, 60*time.Second)
-		core.StartLogWiper(core.TasksLogFilePath, 60*time.Second)
+		wipeLogsAfter := core.AppConfig().WipeLogDataInterval
+
+		core.StartLogWiper(core.AppLogFilePath, time.Duration(wipeLogsAfter)*time.Second)
+		core.StartLogWiper(core.TasksLogFilePath, time.Duration(wipeLogsAfter)*time.Second)
 
 		core.LogMessage("Schedulr daemon running...", "info")
 

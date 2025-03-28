@@ -86,50 +86,8 @@ func defaultForType(typeName string) any {
 	}
 }
 
-func IsDevMode() bool {
-	isDev, err := envData.GetValue("SCHEDULR_DEV", "bool", false)
-	if err != nil {
-		return false
-	}
-
-	boolVal, ok := isDev.(bool)
-	if !ok {
-		return false
-	}
-
-	return boolVal
-}
-
-func ShouldLogData() bool {
-	shouldLog, err := envData.GetValue("LOG_DATA", "bool", true)
-	if err != nil {
-		return true
-	}
-
-	boolVal, ok := shouldLog.(bool)
-	if !ok {
-		return true
-	}
-
-	return boolVal
-}
-
-func ClearLogsAfterSeconds() int {
-	seconds, err := envData.GetValue("LOG_WIPE_INTERVAL_SECONDS", "int", 30)
-	if err != nil {
-		return 30
-	}
-
-	intVal, ok := seconds.(int)
-	if !ok {
-		return 30
-	}
-
-	return intVal
-}
-
 func GetRootDir() (string, error) {
-	if IsDevMode() {
+	if AppConfig().DevMode {
 		return os.Getwd()
 	}
 

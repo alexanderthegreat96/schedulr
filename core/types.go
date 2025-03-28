@@ -4,7 +4,16 @@ import (
 	"slices"
 	"strings"
 	"time"
+
+	"github.com/alexanderthegreat96/envparser"
 )
+
+type Config struct {
+	DevMode             bool
+	LogData             bool
+	WipeLogDataInterval int
+	env                 *envparser.EnvData
+}
 
 type ScheduledTask struct {
 	Task     Task
