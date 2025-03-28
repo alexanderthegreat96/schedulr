@@ -191,7 +191,7 @@ HTTP tasks support configurable methods, headers, and optional JSON bodies. Sche
 | `stop`       | Stops the scheduler daemon                                   |
 
 
-
+## Licence
 MIT License
 
 Copyright (c) [2025] [alexanderthegreat96]
