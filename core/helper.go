@@ -372,8 +372,16 @@ WORKER_COUNT=4
 }
 
 func IsRunningUnderSystemd() bool {
-	_, found := os.LookupEnv("INVOCATION_ID")
-	return found
+	if _, found := os.LookupEnv("INVOCATION_ID"); found {
+		return true
+	}
+
+	cmd := exec.Command("systemctl", "is-active", "schedulr")
+	output, err := cmd.Output()
+	if err != nil {
+		return false
+	}
+	return strings.TrimSpace(string(output)) == "active"
 }
 
 func IsRunningUnderLaunchd() bool {
