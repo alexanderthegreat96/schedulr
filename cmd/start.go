@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"runtime"
 
 	"github.com/alexanderthegreat96/schedulr/core"
 
@@ -19,6 +20,13 @@ var startCmd = &cobra.Command{
 
 		if core.PidFileExists() {
 			core.LogMessage("Daemon already running. Canceling.", "warn")
+			return
+		}
+
+		// support for systemd / launchd
+		if (runtime.GOOS == "darwin" && core.IsRunningUnderLaunchd()) || core.IsRunningUnderSystemd() {
+			core.LogMessage("Detected system-managed environment — running in foreground", "info")
+			core.RunDaemon()
 			return
 		}
 

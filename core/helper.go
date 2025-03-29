@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"reflect"
@@ -368,4 +369,16 @@ WORKER_COUNT=4
 	}
 
 	return nil
+}
+
+func IsRunningUnderSystemd() bool {
+	_, found := os.LookupEnv("INVOCATION_ID")
+	return found
+}
+
+func IsRunningUnderLaunchd() bool {
+	ppid := os.Getppid()
+	cmd := exec.Command("ps", "-p", strconv.Itoa(ppid), "-o", "comm=")
+	output, err := cmd.Output()
+	return err == nil && string(output) == "launchd\n"
 }

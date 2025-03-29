@@ -2,10 +2,29 @@ package core
 
 import (
 	"fmt"
+	"os"
 	"time"
 )
 
-func RunSchedulerLoop() error {
+func RunDaemon() {
+	InitLogger()
+	SetupGracefulShutdown()
+
+	wipeLogsAfter := AppConfig().WipeLogDataInterval
+
+	StartLogWiper(AppLogFilePath, time.Duration(wipeLogsAfter)*time.Second)
+	StartLogWiper(TasksLogFilePath, time.Duration(wipeLogsAfter)*time.Second)
+
+	LogMessage("Schedulr daemon running...", "info")
+
+	if err := runSchedulerLoop(); err != nil {
+		LogMessageToFile(fmt.Sprintf("Daemon crashed: %v", err), "error", "app")
+		CloseLoggers()
+		os.Exit(1)
+	}
+}
+
+func runSchedulerLoop() error {
 	InitLogger()
 
 	shellTasks, err := GetTasks(SHELL_TASK)

@@ -22,10 +22,14 @@ func Execute() {
 		fmt.Printf("There was an error trying to auto-setup all files and folders. Error: %s\n", err.Error())
 	}
 
+	core.InitLogger()
 	schedulr := figure.NewColorFigure("Schedulr", "doom", "blue", false)
 	schedulr.Print()
 	fmt.Println()
 
+	if core.AppConfig().DevMode == true {
+		core.LogMessage("App is running in DEV mode.", "info")
+	}
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)
 	}

@@ -1,10 +1,6 @@
 package cmd
 
 import (
-	"fmt"
-	"os"
-	"time"
-
 	"github.com/alexanderthegreat96/schedulr/core"
 
 	"github.com/spf13/cobra"
@@ -15,21 +11,7 @@ var daemonCmd = &cobra.Command{
 	Short:  "Runs the actual scheduler process in background",
 	Hidden: true,
 	Run: func(cmd *cobra.Command, args []string) {
-		core.InitLogger()
-		core.SetupGracefulShutdown()
-
-		wipeLogsAfter := core.AppConfig().WipeLogDataInterval
-
-		core.StartLogWiper(core.AppLogFilePath, time.Duration(wipeLogsAfter)*time.Second)
-		core.StartLogWiper(core.TasksLogFilePath, time.Duration(wipeLogsAfter)*time.Second)
-
-		core.LogMessage("Schedulr daemon running...", "info")
-
-		if err := core.RunSchedulerLoop(); err != nil {
-			core.LogMessageToFile(fmt.Sprintf("Daemon crashed: %v", err), "error", "app")
-			core.CloseLoggers()
-			os.Exit(1)
-		}
+		core.RunDaemon()
 	},
 }
 
