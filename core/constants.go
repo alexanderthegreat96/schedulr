@@ -1,11 +1,17 @@
 package core
 
-// various constants used across the application
-// from status codes, to interval types and task types
+// app related
 const (
-	APP_LOGS_DIR   string = "app-logs"
-	TASK_LOGS_DIR  string = "task-logs"
-	TASKS_FOLDER   string = "tasks"
+	APP_LOGS_DIR    string = "app-logs"
+	TASK_LOGS_DIR   string = "task-logs"
+	TASKS_FOLDER    string = "tasks"
+	SYSTEMD_COMMAND string = "systemctl"
+	LAUNCHD_COMMAND string = "launchctl"
+	SERVICE_NAME    string = "schedulr"
+)
+
+// status codes
+const (
 	METHOD_GET     string = "GET"
 	METHOD_POST    string = "POST"
 	METHOD_PUT     string = "PUT"

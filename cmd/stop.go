@@ -3,7 +3,6 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"os/exec"
 
 	"github.com/alexanderthegreat96/schedulr/core"
 
@@ -19,7 +18,7 @@ var stopCmd = &cobra.Command{
 
 		if core.IsRunningUnderSystemd() {
 			core.LogMessage("Detected systemd — stopping via systemctl", "info")
-			err := exec.Command("systemctl", "stop", "schedulr").Run()
+			err := core.KillSystemDService()
 			if err != nil {
 				core.LogMessage(fmt.Sprintf("Failed to stop systemd service: %s", err.Error()), "error")
 			} else {
@@ -30,7 +29,7 @@ var stopCmd = &cobra.Command{
 
 		if core.IsRunningUnderLaunchd() {
 			core.LogMessage("Detected launchd — unloading via launchctl", "info")
-			err := exec.Command("launchctl", "unload", "~/Library/LaunchAgents/com.schedulr.app.plist").Run()
+			err := core.KillLaunchDService()
 			if err != nil {
 				core.LogMessage(fmt.Sprintf("Failed to unload launchd service: %s", err.Error()), "error")
 			} else {

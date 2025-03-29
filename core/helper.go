@@ -361,6 +361,9 @@ func AutoSetup() error {
 LOG_DATA=true
 LOG_WIPE_INTERVAL_SECONDS=20
 WORKER_COUNT=4
+SYSTEMD_COMMAND=systemctl
+LAUNCHD_COMMAND=launchctl
+SERVICE_NAME=schedulr
 		`
 		if err := os.WriteFile(configFilePath, []byte(configFileContents), 0644); err != nil {
 			return fmt.Errorf("failed to create schedulr.config file in: %s: %w", configFilePath, err)
@@ -376,12 +379,11 @@ func IsRunningUnderSystemd() bool {
 		return true
 	}
 
-	cmd := exec.Command("systemctl", "is-active", "schedulr")
-	output, err := cmd.Output()
-	if err != nil {
-		return false
-	}
-	return strings.TrimSpace(string(output)) == "active"
+	cmd := exec.Command(AppConfig().SystemDCommand, "is-active", AppConfig().ServiceName)
+	output, _ := cmd.CombinedOutput()
+	status := strings.TrimSpace(string(output))
+
+	return status == "active" || status == "activating"
 }
 
 func IsRunningUnderLaunchd() bool {
@@ -394,7 +396,7 @@ func IsRunningUnderLaunchd() bool {
 	if err != nil {
 		return false
 	}
-	return strings.TrimSpace(string(output)) == "launchd"
+	return strings.TrimSpace(string(output)) == AppConfig().LaunchDCommand
 }
 
 func IsManagedByInitSystem() bool {
@@ -402,12 +404,12 @@ func IsManagedByInitSystem() bool {
 }
 
 func CheckSystemdStatus(serviceName string) (string, error) {
-	output, err := exec.Command("systemctl", "is-active", serviceName).Output()
+	output, err := exec.Command(AppConfig().SystemDCommand, "is-active", serviceName).Output()
 	return strings.TrimSpace(string(output)), err
 }
 
 func CheckLaunchdStatus(label string) (string, error) {
-	output, err := exec.Command("launchctl", "list").Output()
+	output, err := exec.Command(AppConfig().LaunchDCommand, "list").Output()
 	if err != nil {
 		return "", err
 	}
@@ -418,4 +420,17 @@ func CheckLaunchdStatus(label string) (string, error) {
 		}
 	}
 	return "inactive", nil
+}
+
+func KillSystemDService() error {
+	return exec.Command(AppConfig().SystemDCommand, "stop", AppConfig().ServiceName).Run()
+}
+
+func KillLaunchDService() error {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return err
+	}
+	plistPath := fmt.Sprintf("%s/Library/LaunchAgents/%s.plist", homeDir, AppConfig().ServiceName)
+	return exec.Command(AppConfig().LaunchDCommand, "unload", plistPath).Run()
 }

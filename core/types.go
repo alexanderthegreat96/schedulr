@@ -13,6 +13,9 @@ type Config struct {
 	LogData             bool
 	WipeLogDataInterval int
 	WorkerCount         int
+	SystemDCommand      string
+	LaunchDCommand      string
+	ServiceName         string
 	env                 *envparser.EnvData
 }
 

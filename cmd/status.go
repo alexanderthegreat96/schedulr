@@ -15,7 +15,7 @@ var statusCmd = &cobra.Command{
 		core.InitLogger()
 
 		if core.IsRunningUnderSystemd() {
-			status, err := core.CheckSystemdStatus("schedulr")
+			status, err := core.CheckSystemdStatus(core.AppConfig().ServiceName)
 			if err != nil {
 				core.LogMessage(fmt.Sprintf("Systemd check failed: %s", err.Error()), "error")
 			}
@@ -28,7 +28,7 @@ var statusCmd = &cobra.Command{
 		}
 
 		if core.IsRunningUnderLaunchd() {
-			status, err := core.CheckLaunchdStatus("com.schedulr.app")
+			status, err := core.CheckLaunchdStatus(core.AppConfig().ServiceName)
 			if err != nil {
 				core.LogMessage(fmt.Sprintf("Launchd check failed: %s", err.Error()), "error")
 			}
