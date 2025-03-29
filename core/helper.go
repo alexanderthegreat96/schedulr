@@ -377,8 +377,37 @@ func IsRunningUnderSystemd() bool {
 }
 
 func IsRunningUnderLaunchd() bool {
+	if runtime.GOOS != "darwin" {
+		return false
+	}
 	ppid := os.Getppid()
 	cmd := exec.Command("ps", "-p", strconv.Itoa(ppid), "-o", "comm=")
 	output, err := cmd.Output()
-	return err == nil && string(output) == "launchd\n"
+	if err != nil {
+		return false
+	}
+	return strings.TrimSpace(string(output)) == "launchd"
+}
+
+func IsManagedByInitSystem() bool {
+	return IsRunningUnderSystemd() || IsRunningUnderLaunchd()
+}
+
+func CheckSystemdStatus(serviceName string) (string, error) {
+	output, err := exec.Command("systemctl", "is-active", serviceName).Output()
+	return strings.TrimSpace(string(output)), err
+}
+
+func CheckLaunchdStatus(label string) (string, error) {
+	output, err := exec.Command("launchctl", "list").Output()
+	if err != nil {
+		return "", err
+	}
+	lines := strings.Split(string(output), "\n")
+	for _, line := range lines {
+		if strings.Contains(line, label) {
+			return "active", nil
+		}
+	}
+	return "inactive", nil
 }

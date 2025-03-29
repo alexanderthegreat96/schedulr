@@ -2,7 +2,8 @@ package cmd
 
 import (
 	"fmt"
-	"syscall"
+	"os"
+	"os/exec"
 
 	"github.com/alexanderthegreat96/schedulr/core"
 
@@ -16,20 +17,50 @@ var stopCmd = &cobra.Command{
 		core.InitLogger()
 		core.LogMessage("Daemon shutdown comenced, please wait...", "info")
 
+		if core.IsRunningUnderSystemd() {
+			core.LogMessage("Detected systemd — stopping via systemctl", "info")
+			err := exec.Command("systemctl", "stop", "schedulr").Run()
+			if err != nil {
+				core.LogMessage(fmt.Sprintf("Failed to stop systemd service: %s", err.Error()), "error")
+			} else {
+				core.LogMessage("Schedulr stopped via systemd.", "success")
+			}
+			return
+		}
+
+		if core.IsRunningUnderLaunchd() {
+			core.LogMessage("Detected launchd — unloading via launchctl", "info")
+			err := exec.Command("launchctl", "unload", "~/Library/LaunchAgents/com.schedulr.app.plist").Run()
+			if err != nil {
+				core.LogMessage(fmt.Sprintf("Failed to unload launchd service: %s", err.Error()), "error")
+			} else {
+				core.LogMessage("Schedulr stopped via launchd.", "success")
+			}
+			return
+		}
+
+		if !core.PidFileExists() {
+			core.LogMessage("Schedulr is not running (no PID file found).", "warn")
+			return
+		}
+
 		pid, err := core.ReadPidFile()
 		if err != nil {
-			core.LogMessage(err.Error(), "error")
+			core.LogMessage(fmt.Sprintf("Failed to read PID file: %s", err.Error()), "error")
 			return
 		}
 
-		if err := syscall.Kill(pid, syscall.SIGTERM); err != nil {
-			core.LogMessage(fmt.Sprintf("Failed to stop schedulr daemon. Error: %s", err.Error()), "error")
+		process, err := os.FindProcess(pid)
+		if err != nil {
+			core.LogMessage(fmt.Sprintf("Could not find process: %s", err.Error()), "error")
 			return
 		}
 
-		if err := core.DeletePidFile(); err != nil {
-			core.LogMessage(fmt.Sprintf("Failed to delete pid file. Error: %s", err.Error()), "error")
-			return
+		if err := process.Kill(); err != nil {
+			core.LogMessage(fmt.Sprintf("Failed to kill process: %s", err.Error()), "error")
+		} else {
+			core.LogMessage(fmt.Sprintf("Killed process with PID %d", pid), "success")
+			core.DeletePidFile()
 		}
 
 		core.LogMessage("Schedulr daemon stopped.", "success")

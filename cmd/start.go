@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"runtime"
 
 	"github.com/alexanderthegreat96/schedulr/core"
 
@@ -24,7 +23,7 @@ var startCmd = &cobra.Command{
 		}
 
 		// support for systemd / launchd
-		if (runtime.GOOS == "darwin" && core.IsRunningUnderLaunchd()) || core.IsRunningUnderSystemd() {
+		if core.IsManagedByInitSystem() {
 			core.LogMessage("Detected system-managed environment — running in foreground", "info")
 			core.RunDaemon()
 			return
