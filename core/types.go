@@ -12,6 +12,7 @@ type Config struct {
 	DevMode             bool
 	LogData             bool
 	WipeLogDataInterval int
+	WorkerCount         int
 	env                 *envparser.EnvData
 }
 

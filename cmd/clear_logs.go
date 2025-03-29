@@ -15,7 +15,6 @@ var clearCmd = &cobra.Command{
 Wipes all generated log files.
 	`,
 	Run: func(cmd *cobra.Command, args []string) {
-
 		core.InitLogger()
 
 		err := core.DeleteLogFiles(core.APP_LOGS_DIR)

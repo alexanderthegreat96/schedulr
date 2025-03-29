@@ -24,18 +24,16 @@ var startCmd = &cobra.Command{
 
 		process := exec.Command(os.Args[0], "daemon")
 
-		// Detach stdio (optional: attach to a log file)
 		process.Stdout = nil
 		process.Stderr = nil
 		process.Stdin = nil
-		process.SysProcAttr = core.GetProcAttr() // Setsid on Unix
+		process.SysProcAttr = core.GetProcAttr()
 
 		if err := process.Start(); err != nil {
 			core.LogMessage(fmt.Sprintf("Failed to start daemon: %v", err), "error")
 			return
 		}
 
-		// Save PID
 		if err := core.CreatePidFile(process.Process.Pid); err != nil {
 			core.LogMessage(fmt.Sprintf("Failed to write PID file: %v", err), "error")
 			return

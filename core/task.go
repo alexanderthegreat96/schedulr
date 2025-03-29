@@ -9,14 +9,13 @@ import (
 	"strings"
 )
 
-func normalizeTaskParams(taskType, taskName string) (string, string) {
+func NormalizeTaskParams(taskType, taskName string) (string, string) {
 	taskType = strings.ToLower(taskType)
 	taskName = convertToPascalCase(taskName)
 	return taskType, taskName
 }
 
 func TaskExists(taskType, taskName string) bool {
-	taskType, taskName = normalizeTaskParams(taskType, taskName)
 	taskDir := filepath.Join(taskLocation, taskType)
 
 	files, err := os.ReadDir(taskDir)
@@ -31,6 +30,7 @@ func TaskExists(taskType, taskName string) bool {
 			if err != nil {
 				continue
 			}
+
 			if data.GetName() == taskName {
 				return true
 			}
@@ -40,7 +40,7 @@ func TaskExists(taskType, taskName string) bool {
 }
 
 func GetTasks(taskType string) ([]Task, error) {
-	taskType, _ = normalizeTaskParams(taskType, "")
+	taskType, _ = NormalizeTaskParams(taskType, "")
 	taskDir := filepath.Join(taskLocation, taskType)
 
 	if taskType != HTTP_TASK && taskType != SHELL_TASK {
@@ -68,9 +68,28 @@ func GetTasks(taskType string) ([]Task, error) {
 	return foundTasks, nil
 }
 
-func CreateTask(taskName, taskType string) (string, error) {
-	taskType, taskName = normalizeTaskParams(taskType, taskName)
+func GetTask(taskType, taskName string) (Task, error) {
+	taskDir := filepath.Join(taskLocation, taskType)
 
+	if taskType != HTTP_TASK && taskType != SHELL_TASK {
+		return nil, fmt.Errorf("valid task types include: %s | %s", HTTP_TASK, SHELL_TASK)
+	}
+
+	if !TaskExists(taskType, taskName) {
+		return nil, fmt.Errorf("a %s task with the name %s does not exist", taskType, taskName)
+	}
+
+	taskPath := filepath.Join(taskDir, fmt.Sprintf("%s.json", taskName))
+
+	data, err := fromTaskJson(taskPath, taskType)
+	if err != nil {
+		return nil, err
+	}
+
+	return data, nil
+}
+
+func CreateTask(taskName, taskType string) (string, error) {
 	if TaskExists(taskType, taskName) {
 		return "", fmt.Errorf("a %s task with the name %s already exists", taskType, taskName)
 	}

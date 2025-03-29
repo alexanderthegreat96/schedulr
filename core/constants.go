@@ -3,7 +3,6 @@ package core
 // various constants used across the application
 // from status codes, to interval types and task types
 const (
-	WORKER_COUNT   int    = 4
 	APP_LOGS_DIR   string = "app-logs"
 	TASK_LOGS_DIR  string = "task-logs"
 	TASKS_FOLDER   string = "tasks"

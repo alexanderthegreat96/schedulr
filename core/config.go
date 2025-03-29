@@ -13,6 +13,7 @@ func AppConfig() *Config {
 	cfg.DevMode = cfg.getBool("SCHEDULR_DEV", false)
 	cfg.LogData = cfg.getBool("LOG_DATA", true)
 	cfg.WipeLogDataInterval = cfg.getInt("LOG_WIPE_INTERVAL_SECONDS", 30)
+	cfg.WorkerCount = cfg.getInt("WORKER_COUNT", 4)
 
 	return cfg
 }

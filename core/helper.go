@@ -14,15 +14,7 @@ import (
 	"strings"
 	"syscall"
 	"time"
-
-	"github.com/alexanderthegreat96/envparser"
 )
-
-// global access to config variables
-// useing schedulr.config for this
-// with env syntax using my custom env parser lib
-
-var envData *envparser.EnvData = envparser.NewEnvParser("schedulr.config")
 
 func DefaultValueIfNull(value any, typeName string) any {
 	if value == nil {
@@ -367,6 +359,7 @@ func AutoSetup() error {
 		configFileContents := `SCHEDULR_DEV=false
 LOG_DATA=true
 LOG_WIPE_INTERVAL_SECONDS=20
+WORKER_COUNT=4
 		`
 		if err := os.WriteFile(configFilePath, []byte(configFileContents), 0644); err != nil {
 			return fmt.Errorf("failed to create schedulr.config file in: %s: %w", configFilePath, err)

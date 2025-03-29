@@ -28,7 +28,7 @@ func RunSchedulerLoop() error {
 
 	taskQueue := make(chan Task)
 
-	for i := 0; i < WORKER_COUNT; i++ {
+	for i := 0; i < AppConfig().WorkerCount; i++ {
 		go func(id int) {
 			for task := range taskQueue {
 				LogMessageToFile(fmt.Sprintf("Worker %d executing %s", id, task.GetName()), "info", "app")

@@ -30,6 +30,8 @@ Examples:
 		taskType := args[0]
 		taskName := args[1]
 
+		taskType, taskName = core.NormalizeTaskParams(taskType, taskName)
+
 		result, err := core.CreateTask(taskName, taskType)
 		if err != nil {
 			core.LogMessage(fmt.Sprintf("Error creating task: %s", err), "warning")
