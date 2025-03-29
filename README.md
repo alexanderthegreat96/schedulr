@@ -30,30 +30,73 @@ Schedulr is a lightweight, crontab-inspired task scheduler that executes tasks b
 ### Prerequisites
 
 - [Go](https://golang.org/dl/) 1.16 or later
+- Mac OS / Linux
 
-### Installation
+### Usage
+
+1. **Download Schedulr**
+
+   Head over to the [Releases](https://github.com/alexanderthegreat96/schedulr/releases) page and download the latest binary for your system architecture.
+
+2. **Install the Binary**
+
+   Move the downloaded `schedulr` binary to a directory of your choice and make it executable:
+
+   ```bash
+   chmod +x schedulr
+   ```
+
+3. **Run the CLI Helper**
+
+   Launch the built-in help menu to initialize necessary files and view available commands:
+
+   ```bash
+   ./schedulr --help
+   ```
+
+4. **Create Your First Task**
+
+   Use the `add` command to define a new task. For example:
+
+   ```bash
+   ./schedulr add shell "My Script Task"
+   ```
+
+   You can also use `http` as the task type to send HTTP requests.
+
+5. **Manage Your Tasks**
+
+   All created task files will be stored in the `tasks/` directory, organized by type (e.g., `tasks/shell/`, `tasks/http/`).
+
+6. **Start the Scheduler Daemon**
+
+   Start Schedulr in daemon mode to begin automatic execution of your tasks:
+
+   ```bash
+   ./schedulr start
+   ```
+
+7. **That’s It! 🎉**
+
+   Your tasks will now run automatically based on their configured intervals. Use `schedulr logs` to monitor output in real-time.
+
+---
+
+✅ Need more examples? Run:
+
+```bash
+./schedulr help
+```
+
+
+
+### Developing
 
 1. **Clone the repository:**
 
    ```bash
    git clone https://github.com/yourusername/schedulr.git
    cd schedulr
-   ```
-
-2. **Build the executable:**
-
-   ```bash
-   go build -o schedulr
-   ```
-
-3. **Create a configuration file:**
-
-   Create a file (e.g., `schedulr.config`) in the root directory to define environment variables such as:
-
-   ```
-   SCHEDULR_DEV=1
-   AppLogFilePath=/var/log/schedulr/app.log
-   TasksLogFilePath=/var/log/schedulr/task.log
    ```
 
 ## Usage
