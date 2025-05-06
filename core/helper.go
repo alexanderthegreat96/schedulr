@@ -92,7 +92,7 @@ func GetRootDir() (string, error) {
 }
 
 func PidFileExists() bool {
-	info, err := os.Stat(pidFilePath)
+	info, err := os.Stat(PidFilePath)
 	return err == nil && !info.IsDir()
 }
 
@@ -101,7 +101,7 @@ func CreatePidFile(pid int) error {
 		return fmt.Errorf("%s already exists", pidFile)
 	}
 
-	os.WriteFile(pidFilePath, []byte(strconv.Itoa(pid)), 0644)
+	os.WriteFile(PidFilePath, []byte(strconv.Itoa(pid)), 0644)
 	return nil
 }
 
@@ -110,7 +110,7 @@ func DeletePidFile() error {
 		return fmt.Errorf("%s does not exist", pidFile)
 	}
 
-	return os.Remove(pidFilePath)
+	return os.Remove(PidFilePath)
 }
 
 func ReadPidFile() (int, error) {
@@ -118,7 +118,7 @@ func ReadPidFile() (int, error) {
 		return 0, fmt.Errorf("%s does not exist", pidFile)
 	}
 
-	data, err := os.ReadFile(pidFilePath)
+	data, err := os.ReadFile(PidFilePath)
 	if err != nil {
 		return 0, fmt.Errorf("unable to read pid file. error: %e", err)
 	}
@@ -150,8 +150,8 @@ func SetupGracefulShutdown() {
 
 	go func() {
 		sig := <-c
-		LogMessageToFile("Received signal: "+sig.String(), "info", "app")
-		LogMessageToFile("Shutting down daemon...", "info", "app")
+		LogMessageToFile("Received signal: "+sig.String(), "info", "app", nil)
+		LogMessageToFile("Shutting down daemon...", "info", "app", nil)
 		CloseLoggers()
 		os.Exit(0)
 	}()
@@ -187,8 +187,17 @@ func DescribeInterval(interval Interval, start time.Time, intervalType string) (
 	return description, nextRun
 }
 
+func NextRunFromNow(exec Execution) time.Duration {
+	firstRun, _ := GetFirstAndNextRun(time.Now(), *exec.GetLastRanAtTime(), exec.Delay, exec.Interval)
+	return firstRun.Sub(time.Now())
+}
+
 func DescribeSchedule(exec Execution, start time.Time) (string, time.Time, time.Time) {
 	firstRun := calculateNextRun(start, exec.Delay)
+	if t := exec.GetLastRanAtTime(); t != nil {
+		firstRun = calculateNextRun(*exec.GetLastRanAtTime(), exec.Interval)
+	}
+
 	nextRun := calculateNextRun(firstRun, exec.Interval)
 
 	delayDesc := "with no delay"
@@ -202,10 +211,11 @@ func DescribeSchedule(exec Execution, start time.Time) (string, time.Time, time.
 	}
 
 	description := fmt.Sprintf("This task runs %s, %s.", delayDesc, intervalDesc)
+
 	return description, firstRun, nextRun
 }
 
-func GetFirstAndNextRun(start time.Time, delay Interval, interval Interval) (time.Time, time.Time) {
+func GetFirstAndNextRun(start time.Time, lastRanAt time.Time, delay Interval, interval Interval) (time.Time, time.Time) {
 	firstRun := calculateNextRun(start, delay)
 	nextRun := calculateNextRun(firstRun, interval)
 	return firstRun, nextRun
@@ -254,18 +264,19 @@ func pluralize(value int, unit string) string {
 	return fmt.Sprintf("%d %ss", value, unit)
 }
 
-func StartLogWiper(logFilePath string, interval time.Duration) {
+// no longer used
+func StartLogWiper(logDir string, interval time.Duration) {
 	go func() {
 		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
 
 		for {
 			<-ticker.C
-			err := os.Truncate(logFilePath, 0)
+			err := DeleteLogFiles(logDir)
 			if err != nil {
-				fmt.Printf("Error wiping log file (%s): %v\n", logFilePath, err)
+				fmt.Printf("Error wiping log file (%s): %v\n", logDir, err)
 			} else {
-				fmt.Printf("Log file %s wiped at %s\n", logFilePath, time.Now().Format(time.RFC3339))
+				fmt.Printf("Log file %s wiped at %s\n", logDir, time.Now().Format(time.RFC3339))
 			}
 		}
 	}()
@@ -311,18 +322,50 @@ func GetLatestLogFile(logDir, pattern string) (string, error) {
 }
 
 func TailLogFile(logFilePath string) error {
-	f, err := os.Open(logFilePath)
+	const numLines = 10
+
+	file, err := os.Open(logFilePath)
 	if err != nil {
 		return fmt.Errorf("failed to open log file: %w", err)
 	}
-	defer f.Close()
+	defer file.Close()
 
-	_, err = f.Seek(0, io.SeekEnd)
+	stat, err := file.Stat()
 	if err != nil {
-		return fmt.Errorf("failed to seek to end of file: %w", err)
+		return fmt.Errorf("failed to get file stat: %w", err)
 	}
 
-	reader := bufio.NewReader(f)
+	var lines []string
+	var pos int64 = stat.Size()
+	buf := make([]byte, 1)
+	lineBuf := ""
+	for pos > 0 && len(lines) < numLines {
+		pos--
+		_, err := file.ReadAt(buf, pos)
+		if err != nil {
+			return fmt.Errorf("failed to read file: %w", err)
+		}
+
+		if buf[0] == '\n' {
+			if lineBuf != "" {
+				lines = append([]string{lineBuf}, lines...)
+				lineBuf = ""
+			}
+		} else {
+			lineBuf = string(buf) + lineBuf
+		}
+	}
+	if lineBuf != "" {
+		lines = append([]string{lineBuf}, lines...)
+	}
+
+	for _, line := range lines {
+		fmt.Println(line)
+	}
+
+	// Now tail the file
+	file.Seek(0, io.SeekEnd)
+	reader := bufio.NewReader(file)
 	for {
 		line, err := reader.ReadString('\n')
 		if err != nil {
@@ -341,10 +384,10 @@ func TailLogFile(logFilePath string) error {
 
 func AutoSetup() error {
 	dirs := []string{
-		filepath.Join(taskLocation, "shell"),
-		filepath.Join(taskLocation, "http"),
-		filepath.Join(rootPath, APP_LOGS_DIR),
-		filepath.Join(rootPath, TASK_LOGS_DIR),
+		filepath.Join(TaskLocation, "shell"),
+		filepath.Join(TaskLocation, "http"),
+		filepath.Join(RootPath, APP_LOGS_DIR),
+		filepath.Join(RootPath, TASK_LOGS_DIR),
 	}
 
 	for _, dir := range dirs {
@@ -355,34 +398,67 @@ func AutoSetup() error {
 		}
 	}
 
-	configFilePath := filepath.Join(rootPath, "schedulr.config")
+	configFilePath := filepath.Join(RootPath, "schedulr.config")
 	if _, err := os.Stat(configFilePath); os.IsNotExist(err) {
-		configFileContents := `SCHEDULR_DEV=false
+		configFileContents := `# ====================
+# Development Settings
+# ====================
+
+# Enable developer mode (adds extra debug info, logs, etc.)
+# Set to true only during development.
+SCHEDULR_DEV=false
+
+# ===================
+# Logging Configuration
+# ===================
+
+# Enable or disable log writing to files
 LOG_DATA=true
-LOG_WIPE_INTERVAL_SECONDS=20
+
+# Interval (in seconds) for wiping old logs
+# Useful for cleanup in long-running daemons
+LOG_WIPE_INTERVAL_SECONDS=100
+
+# ===================
+# Worker Configuration
+# ===================
+
+# Number of parallel worker threads/tasks to run
 WORKER_COUNT=4
+
+# ============================
+# Service Execution Mode
+# ============================
+
+# Determines whether Schedulr should run as a system service (e.g., via systemd/launchd)
+# true  = run in background as a system service (default)
+# false = run manually or as a foreground process
+ENABLE_SCHEDULR_SERVICE=true
+
+# System command to manage the service if ENABLE_SCHEDULR_SERVICE is true
+# Set to 'systemctl' for Linux or 'launchctl' for macOS
 SYSTEMD_COMMAND=systemctl
 LAUNCHD_COMMAND=launchctl
+
+# The name of the service (used for systemd or launchctl)
 SERVICE_NAME=schedulr
+
 		`
 		if err := os.WriteFile(configFilePath, []byte(configFileContents), 0644); err != nil {
 			return fmt.Errorf("failed to create schedulr.config file in: %s: %w", configFilePath, err)
 		}
-
 	}
 
 	return nil
 }
-
 func IsRunningUnderSystemd() bool {
-	if _, found := os.LookupEnv("INVOCATION_ID"); found {
-		return true
+	cmd := exec.Command(AppConfig().SystemDCommand, "is-active", AppConfig().ServiceName)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return false
 	}
 
-	cmd := exec.Command(AppConfig().SystemDCommand, "is-active", AppConfig().ServiceName)
-	output, _ := cmd.CombinedOutput()
 	status := strings.TrimSpace(string(output))
-
 	return status == "active" || status == "activating"
 }
 

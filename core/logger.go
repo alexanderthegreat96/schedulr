@@ -12,17 +12,22 @@ import (
 
 var (
 	consoleLogger *log.Logger
-	appLogFile    *os.File
-	appLogger     *log.Logger
-	taskLogFile   *os.File
-	taskLogger    *log.Logger
-	logMutex      sync.Mutex
+
+	appLogFile *os.File
+	appLogger  *log.Logger
+
+	logMutex     sync.Mutex
+	taskLoggers  = make(map[string]*log.Logger)
+	taskLogFiles = make(map[string]*os.File)
+	taskLogPaths = make(map[string]string)
 )
 
+// console logger initialization
 func InitLogger() {
 	consoleLogger = log.New(os.Stdout, "", 0)
 }
 
+// print message to console
 func LogMessage(message, level string) {
 	logMutex.Lock()
 	defer logMutex.Unlock()
@@ -35,7 +40,8 @@ func LogMessage(message, level string) {
 	consoleLogger.Println(message)
 }
 
-func LogMessageToFile(message, level, logType string) error {
+// save the logs to file
+func LogMessageToFile(message, level, logType string, task Task) error {
 	if !AppConfig().LogData {
 		return nil
 	}
@@ -43,46 +49,67 @@ func LogMessageToFile(message, level, logType string) error {
 	logMutex.Lock()
 	defer logMutex.Unlock()
 
-	var (
-		logFilePath string
-		logger      *log.Logger
-		fileHandle  **os.File // pointer to the appropriate file variable
-	)
+	var logger *log.Logger
 
 	switch strings.ToLower(logType) {
 	case "task":
-		logFilePath = TasksLogFilePath
-		fileHandle = &taskLogFile
-		logger = taskLogger
+		key := task.GetName()
+		logFilePath := getOrCreateLogFilePathForTask(task)
+
+		fileMissing := false
+		if f, ok := taskLogFiles[key]; !ok || f == nil {
+			fileMissing = true
+		} else if _, err := os.Stat(logFilePath); os.IsNotExist(err) {
+			_ = f.Close()
+			fileMissing = true
+		}
+
+		if _, exists := taskLoggers[key]; !exists || fileMissing {
+			dir := filepath.Dir(logFilePath)
+			if err := os.MkdirAll(dir, 0755); err != nil {
+				return fmt.Errorf("failed to create task log directory: %w", err)
+			}
+
+			f, err := os.OpenFile(logFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+			if err != nil {
+				return fmt.Errorf("failed to open task log file: %w", err)
+			}
+
+			taskLogFiles[key] = f
+			taskLoggers[key] = log.New(f, "", 0)
+		}
+
+		logger = taskLoggers[key]
+
 	case "app":
-		logFilePath = AppLogFilePath
-		fileHandle = &appLogFile
+		fileMissing := false
+		if appLogFile == nil {
+			fileMissing = true
+		} else if _, err := os.Stat(AppLogFilePath); os.IsNotExist(err) {
+			_ = appLogFile.Close()
+			appLogFile = nil
+			fileMissing = true
+		}
+
+		if appLogger == nil || fileMissing {
+			dir := filepath.Dir(AppLogFilePath)
+			if err := os.MkdirAll(dir, 0755); err != nil {
+				return fmt.Errorf("failed to create app log directory: %w", err)
+			}
+
+			f, err := os.OpenFile(AppLogFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+			if err != nil {
+				return fmt.Errorf("failed to open app log file: %w", err)
+			}
+
+			appLogFile = f
+			appLogger = log.New(f, "", 0)
+		}
+
 		logger = appLogger
+
 	default:
 		return fmt.Errorf("unknown log type: %s", logType)
-	}
-
-	// Create directory if necessary.
-	dir := filepath.Dir(logFilePath)
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		return fmt.Errorf("failed to create log directory: %w", err)
-	}
-
-	// Initialize the file and logger if not set.
-	if *fileHandle == nil {
-		f, err := os.OpenFile(logFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-		if err != nil {
-			return err
-		}
-		*fileHandle = f
-		// Set the logger for this type.
-		if strings.ToLower(logType) == "task" {
-			taskLogger = log.New(f, "", 0)
-			logger = taskLogger
-		} else {
-			appLogger = log.New(f, "", 0)
-			logger = appLogger
-		}
 	}
 
 	timestamp := time.Now().Format("2006-01-02 15:04:05.000")
@@ -93,19 +120,56 @@ func LogMessageToFile(message, level, logType string) error {
 	return nil
 }
 
+// clear all loggers
 func CloseLoggers() {
 	logMutex.Lock()
 	defer logMutex.Unlock()
+
 	if appLogFile != nil {
-		appLogFile.Close()
+		_ = appLogFile.Close()
 		appLogFile = nil
+		appLogger = nil
 	}
-	if taskLogFile != nil {
-		taskLogFile.Close()
-		taskLogFile = nil
+
+	for k, f := range taskLogFiles {
+		_ = f.Close()
+		delete(taskLogFiles, k)
+		delete(taskLoggers, k)
+		delete(taskLogPaths, k)
 	}
 }
 
+// doing this because if not
+// then then when the system checks if a
+// log file for tasks which includes a timestamp
+// will always be different and re-created
+func getOrCreateLogFilePathForTask(task Task) string {
+	key := task.GetName()
+
+	if path, exists := taskLogPaths[key]; exists {
+		return path
+	}
+
+	timestamp := time.Now().UTC().Format("2006-01-02T15-04-05.000Z")
+	RootPath, _ := GetRootDir()
+	name := sanitizeFileName(task.GetName())
+	path := filepath.Join(RootPath, TASK_LOGS_DIR, fmt.Sprintf("%s_%s.log", name, timestamp))
+
+	taskLogPaths[key] = path
+	return path
+}
+
+// some sanitization
+func sanitizeFileName(name string) string {
+	return strings.Map(func(r rune) rune {
+		if strings.ContainsRune(`\/:*?"<>| `, r) {
+			return '_'
+		}
+		return r
+	}, name)
+}
+
+// self explanatory
 func getColorForLevel(level string) string {
 	switch level {
 	case "info":
@@ -138,6 +202,6 @@ func levelUpper(level string) string {
 	case "debug":
 		return "DEBUG"
 	default:
-		return level
+		return strings.ToUpper(level)
 	}
 }

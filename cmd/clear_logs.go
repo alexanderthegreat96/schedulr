@@ -17,15 +17,15 @@ Wipes all generated log files.
 	Run: func(cmd *cobra.Command, args []string) {
 		core.InitLogger()
 
-		err := core.DeleteLogFiles(core.APP_LOGS_DIR)
+		err := core.DeleteLogFiles(core.AppLogDirPath)
 		if err != nil {
-			core.LogMessage(fmt.Sprintf("Issue deleting logs from %s. Error: %s", core.APP_LOGS_DIR, err.Error()), "error")
+			core.LogMessage(fmt.Sprintf("Issue deleting logs from %s. Error: %s", core.AppLogDirPath, err.Error()), "error")
 			return
 		}
 
-		err = core.DeleteLogFiles(core.TASK_LOGS_DIR)
+		err = core.DeleteLogFiles(core.TasksLogDirPath)
 		if err != nil {
-			core.LogMessage(fmt.Sprintf("Issue deleting logs from %s. Error: %s", core.TASK_LOGS_DIR, err.Error()), "error")
+			core.LogMessage(fmt.Sprintf("Issue deleting logs from %s. Error: %s", core.TasksLogDirPath, err.Error()), "error")
 			return
 		}
 

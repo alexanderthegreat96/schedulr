@@ -10,7 +10,11 @@ import (
 var runCmd = &cobra.Command{
 	Use:   "run [task_type] [task_name]",
 	Short: "Runs a specified task",
-	Args:  cobra.ExactArgs(2),
+	Long: `Runs a specified task.
+Important: We use kebab-case to pascal-case, which means: my-task-name is converted to MyTaskName
+Example: schedulr run shell my-task-name
+`,
+	Args: cobra.ExactArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
 		core.InitLogger()
 

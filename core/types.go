@@ -9,14 +9,15 @@ import (
 )
 
 type Config struct {
-	DevMode             bool
-	LogData             bool
-	WipeLogDataInterval int
-	WorkerCount         int
-	SystemDCommand      string
-	LaunchDCommand      string
-	ServiceName         string
-	env                 *envparser.EnvData
+	DevMode               bool
+	LogData               bool
+	WipeLogDataInterval   int
+	WorkerCount           int
+	EnableSchedulrService bool
+	SystemDCommand        string
+	LaunchDCommand        string
+	ServiceName           string
+	env                   *envparser.EnvData
 }
 
 type ScheduledTask struct {
@@ -38,8 +39,10 @@ type Interval struct {
 type Execution struct {
 	Interval  Interval `json:"interval"`
 	Delay     Interval `json:"delay"`
+	LastRanAt string   `json:"last_ran_at"`
 	RunBefore string   `json:"run_before"`
 	RunAfter  string   `json:"run_after"`
+	IsEnabled bool     `json:"is_enabled"`
 }
 
 type ShellTask struct {
@@ -168,6 +171,21 @@ func (h HttpTask) GetBody() map[string]any {
 
 func (h HttpTask) GetHeaders() map[string]any {
 	return h.Headers
+}
+
+func (e Execution) GetLastRanAtTime() *time.Time {
+	if e.LastRanAt == "" {
+		return nil
+	}
+	t, err := time.Parse(time.RFC3339, e.LastRanAt)
+	if err != nil {
+		return nil
+	}
+	return &t
+}
+
+func (e *Execution) SetLastRanAt(t time.Time) {
+	e.LastRanAt = t.UTC().Format(time.RFC3339)
 }
 
 // just making sure that the methods align with the

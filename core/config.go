@@ -16,6 +16,7 @@ func AppConfig() *Config {
 	cfg.LogData = cfg.getBool("LOG_DATA", true)
 	cfg.WipeLogDataInterval = cfg.getInt("LOG_WIPE_INTERVAL_SECONDS", 30)
 	cfg.WorkerCount = cfg.getInt("WORKER_COUNT", 4)
+	cfg.EnableSchedulrService = cfg.getBool("ENABLE_SCHEDULR_SERVICE", true)
 	cfg.SystemDCommand = cfg.getStr("SYSTEMD_COMMAND", SYSTEMD_COMMAND)
 	cfg.LaunchDCommand = cfg.getStr("LAUNCHD_COMMAND", LAUNCHD_COMMAND)
 	cfg.ServiceName = cfg.getStr("SERVICE_NAME", SERVICE_NAME)

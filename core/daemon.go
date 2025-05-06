@@ -12,13 +12,16 @@ func RunDaemon() {
 
 	wipeLogsAfter := AppConfig().WipeLogDataInterval
 
-	StartLogWiper(AppLogFilePath, time.Duration(wipeLogsAfter)*time.Second)
-	StartLogWiper(TasksLogFilePath, time.Duration(wipeLogsAfter)*time.Second)
+	StartLogWiper(AppLogDirPath, time.Duration(wipeLogsAfter)*time.Second)
+	StartLogWiper(TasksLogDirPath, time.Duration(wipeLogsAfter)*time.Second)
 
 	LogMessage("Schedulr daemon running...", "info")
 
 	if err := runSchedulerLoop(); err != nil {
-		LogMessageToFile(fmt.Sprintf("Daemon crashed: %v", err), "error", "app")
+		err := LogMessageToFile(fmt.Sprintf("Daemon crashed: %v", err), "error", "app", nil)
+		if err != nil {
+			return
+		}
 		CloseLoggers()
 		os.Exit(1)
 	}
@@ -29,12 +32,18 @@ func runSchedulerLoop() error {
 
 	shellTasks, err := GetTasks(SHELL_TASK)
 	if err != nil {
-		LogMessageToFile(fmt.Sprintf("Error loading shell tasks: %v", err), "error", "app")
+		err := LogMessageToFile(fmt.Sprintf("Error loading shell tasks: %v", err), "error", "app", nil)
+		if err != nil {
+			return err
+		}
 		return err
 	}
 	httpTasks, err := GetTasks(HTTP_TASK)
 	if err != nil {
-		LogMessageToFile(fmt.Sprintf("Error loading HTTP tasks: %v", err), "error", "app")
+		err := LogMessageToFile(fmt.Sprintf("Error loading HTTP tasks: %v", err), "error", "app", nil)
+		if err != nil {
+			return err
+		}
 		return err
 	}
 
@@ -42,7 +51,14 @@ func runSchedulerLoop() error {
 
 	scheduledTasks := make([]ScheduledTask, 0)
 	for _, t := range tasks {
-		scheduledTasks = append(scheduledTasks, scheduleTask(t))
+		// skip disabled tasks
+		if !t.GetExecution().IsEnabled {
+			continue
+		}
+
+		if st := scheduleTask(t); st != nil {
+			scheduledTasks = append(scheduledTasks, *st)
+		}
 	}
 
 	taskQueue := make(chan Task)
@@ -50,7 +66,10 @@ func runSchedulerLoop() error {
 	for i := 0; i < AppConfig().WorkerCount; i++ {
 		go func(id int) {
 			for task := range taskQueue {
-				LogMessageToFile(fmt.Sprintf("Worker %d executing %s", id, task.GetName()), "info", "app")
+				err := LogMessageToFile(fmt.Sprintf("Worker %d executing %s", id, task.GetName()), "info", "app", nil)
+				if err != nil {
+					return
+				}
 				executeTaskWithDependencies(task)
 			}
 		}(i + 1)
@@ -75,8 +94,10 @@ func runSchedulerLoop() error {
 		}
 
 		taskQueue <- scheduledTasks[nextIndex].Task
-		LogMessageToFile(fmt.Sprintf("Dispatched task: %s", scheduledTasks[nextIndex].Task.GetName()), "info", "app")
-
+		err := LogMessageToFile(fmt.Sprintf("Dispatched task: %s", scheduledTasks[nextIndex].Task.GetName()), "info", "app", nil)
+		if err != nil {
+			return err
+		}
 		if !isZeroInterval(scheduledTasks[nextIndex].Interval) {
 			scheduledTasks[nextIndex].NextRun = calculateNextRun(time.Now(), scheduledTasks[nextIndex].Interval)
 		} else {

@@ -22,13 +22,14 @@ var startCmd = &cobra.Command{
 			return
 		}
 
-		// support for systemd / launchd
-		if core.IsManagedByInitSystem() {
+		// support for systemd / launchd only if schedulr service usage is enabled
+		if core.AppConfig().EnableSchedulrService && core.IsManagedByInitSystem() {
 			core.LogMessage("Detected system-managed environment — running in foreground", "info")
 			core.RunDaemon()
 			return
 		}
 
+		// fallback to schedulr service and start the daemon directly
 		process := exec.Command(os.Args[0], "daemon")
 
 		process.Stdout = nil

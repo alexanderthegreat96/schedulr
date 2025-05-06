@@ -142,14 +142,29 @@ Schedulr includes a built-in command to tail the latest log file in real time. F
 Or for task logs:
 
 ```bash
-./schedulr logs task
+./schedulr logs task backup-database
+./schedulr logs task ping-api
 ```
 
 The command finds the most recently modified log file in the appropriate directory and outputs new entries using the application's logging format.
 
 ## Command Line Usage
 
-Schedulr uses a command-line interface built with Cobra. Below is an overview of the available commands:
+Schedulr provides a command-line interface powered by [Cobra](https://github.com/spf13/cobra)
+
+### 🔤 Command Name Normalization
+
+All command-line arguments are automatically normalized to ensure consistent task matching:
+
+- Any command or task name provided is converted to **PascalCase**, then to **kebab-case**.  
+  **Example:**  
+  `"Backup Database"` → `"BackupDatabase"` → `"backup-database"`
+
+- When referencing an existing task by name (e.g., from the filesystem or scheduler), the reverse process is applied:  
+  **Example:**  
+  `"backup-database"` → `"BackupDatabase"`
+
+This ensures that task names are matched reliably regardless of formatting or casing in user input.
 
 ### `add`
 
@@ -168,7 +183,7 @@ schedulr add http "Ping API"
 
 ### `logs`
 
-- **Usage:** `schedulr logs [log_type]`
+- **Usage:** `schedulr logs [log_type] [task_type] [task_name]`
 - **Description:** Tails the most recently modified log file in real time.
 - **Supported Log Types:**
   - `app`: Application logs.
@@ -180,7 +195,7 @@ Examples:
 
 ```bash
 schedulr logs app
-schedulr logs task
+schedulr logs task backup-database
 ```
 
 ### Default Behavior

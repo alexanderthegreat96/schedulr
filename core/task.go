@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 )
 
 func NormalizeTaskParams(taskType, taskName string) (string, string) {
@@ -16,8 +17,7 @@ func NormalizeTaskParams(taskType, taskName string) (string, string) {
 }
 
 func TaskExists(taskType, taskName string) bool {
-	taskDir := filepath.Join(taskLocation, taskType)
-
+	taskDir := filepath.Join(TaskLocation, taskType)
 	files, err := os.ReadDir(taskDir)
 	if err != nil {
 		return false
@@ -41,7 +41,7 @@ func TaskExists(taskType, taskName string) bool {
 
 func GetTasks(taskType string) ([]Task, error) {
 	taskType, _ = NormalizeTaskParams(taskType, "")
-	taskDir := filepath.Join(taskLocation, taskType)
+	taskDir := filepath.Join(TaskLocation, taskType)
 
 	if taskType != HTTP_TASK && taskType != SHELL_TASK {
 		return []Task{}, fmt.Errorf("valid task types include: %s | %s", HTTP_TASK, SHELL_TASK)
@@ -69,8 +69,7 @@ func GetTasks(taskType string) ([]Task, error) {
 }
 
 func GetTask(taskType, taskName string) (Task, error) {
-	taskDir := filepath.Join(taskLocation, taskType)
-
+	taskDir := filepath.Join(TaskLocation, taskType)
 	if taskType != HTTP_TASK && taskType != SHELL_TASK {
 		return nil, fmt.Errorf("valid task types include: %s | %s", HTTP_TASK, SHELL_TASK)
 	}
@@ -80,7 +79,6 @@ func GetTask(taskType, taskName string) (Task, error) {
 	}
 
 	taskPath := filepath.Join(taskDir, fmt.Sprintf("%s.json", taskName))
-
 	data, err := fromTaskJson(taskPath, taskType)
 	if err != nil {
 		return nil, err
@@ -92,11 +90,6 @@ func GetTask(taskType, taskName string) (Task, error) {
 func CreateTask(taskName, taskType string) (string, error) {
 	if TaskExists(taskType, taskName) {
 		return "", fmt.Errorf("a %s task with the name %s already exists", taskType, taskName)
-	}
-
-	taskDir := filepath.Join(taskLocation, taskType)
-	if err := os.MkdirAll(taskDir, 0755); err != nil {
-		return "", fmt.Errorf("failed to create task directory: %w", err)
 	}
 
 	taskInterval := Interval{
@@ -114,6 +107,7 @@ func CreateTask(taskName, taskType string) (string, error) {
 		Delay:     taskInterval,
 		RunBefore: "",
 		RunAfter:  "",
+		LastRanAt: "",
 	}
 
 	var taskSource Task
@@ -138,17 +132,56 @@ func CreateTask(taskName, taskType string) (string, error) {
 		return "", fmt.Errorf("invalid task type: %s", taskType)
 	}
 
-	jsonData, err := json.MarshalIndent(taskSource, "", "  ")
-	if err != nil {
-		return "", fmt.Errorf("failed to serialize task: %v", err)
-	}
-
-	fileName := filepath.Join(taskDir, taskName+".json")
-	if err := os.WriteFile(fileName, jsonData, 0644); err != nil {
-		return "", fmt.Errorf("failed to write task file: %v", err)
+	if err := SaveTask(taskSource, taskType); err != nil {
+		return "", fmt.Errorf("failed to save task: %w", err)
 	}
 
 	return fmt.Sprintf("Task %s of type %s created successfully", taskName, taskType), nil
+}
+
+func SaveTask(task Task, taskType string) error {
+	taskDir := filepath.Join(TaskLocation, taskType)
+	if err := os.MkdirAll(taskDir, 0755); err != nil {
+		return fmt.Errorf("failed to create task directory: %w", err)
+	}
+
+	taskPath := filepath.Join(taskDir, fmt.Sprintf("%s.json", task.GetName()))
+
+	data, err := json.MarshalIndent(task, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to serialize task: %w", err)
+	}
+	return os.WriteFile(taskPath, data, 0644)
+}
+
+func UpdateRanAt(taskType, taskName string) error {
+	if !TaskExists(taskType, taskName) {
+		return fmt.Errorf("no task with the name %s of type %s found", taskName, taskType)
+	}
+
+	task, err := GetTask(taskType, taskName)
+	if err != nil {
+		return fmt.Errorf("unable to get task with name %s of type %s", taskName, taskType)
+	}
+
+	now := time.Now()
+
+	switch t := task.(type) {
+	case ShellTask:
+		(&t.Execution).SetLastRanAt(now)
+		if err := SaveTask(t, taskType); err != nil {
+			return fmt.Errorf("failed to save updated shell task: %w", err)
+		}
+	case HttpTask:
+		(&t.Execution).SetLastRanAt(now)
+		if err := SaveTask(t, taskType); err != nil {
+			return fmt.Errorf("failed to save updated http task: %w", err)
+		}
+	default:
+		return fmt.Errorf("unknown task type for update")
+	}
+
+	return nil
 }
 
 func fromTaskJson(filePath, taskType string) (Task, error) {

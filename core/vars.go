@@ -3,17 +3,17 @@ package core
 import (
 	"fmt"
 	"path/filepath"
-	"strconv"
 	"time"
 )
 
 var (
-	rootPath, _      = GetRootDir()
-	taskLocation     = filepath.Join(rootPath, TASKS_FOLDER)
-	knownTaskTypes   = []string{SHELL_TASK, HTTP_TASK}
-	pidFile          = "schedulr.pid"
-	logFileName      = fmt.Sprintf("scheduler_%s.log", strconv.FormatInt(time.Now().UTC().UnixNano(), 10))
-	pidFilePath      = filepath.Join(rootPath, pidFile)
-	AppLogFilePath   = filepath.Join(rootPath, APP_LOGS_DIR, logFileName)
-	TasksLogFilePath = filepath.Join(rootPath, TASK_LOGS_DIR, logFileName)
+	RootPath, _     = GetRootDir()
+	TaskLocation    = filepath.Join(RootPath, TASKS_FOLDER)
+	knownTaskTypes  = []string{SHELL_TASK, HTTP_TASK}
+	pidFile         = "schedulr.pid"
+	logFileName     = fmt.Sprintf("scheduler_%s.log", time.Now().UTC().Format("2006-01-02T15-04-05.000Z"))
+	PidFilePath     = filepath.Join(RootPath, pidFile)
+	AppLogFilePath  = filepath.Join(RootPath, APP_LOGS_DIR, logFileName)
+	TasksLogDirPath = filepath.Join(RootPath, TASK_LOGS_DIR)
+	AppLogDirPath   = filepath.Join(RootPath, APP_LOGS_DIR)
 )
