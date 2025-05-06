@@ -22,7 +22,7 @@
     "last_ran_at": "2025-05-02T22:49:15Z",
     "run_before": "",
     "run_after": "",
-    "is_enabled": true
+    "is_enabled": false
   },
   "command": "/usr/bin/python3 --version"
 }

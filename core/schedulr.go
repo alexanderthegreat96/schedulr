@@ -89,6 +89,9 @@ func ExecuteTask(task Task) {
 
 func executeTaskWithDependencies(task Task) {
 	if before := task.GetRunBefore(); before != nil {
+		if !before.GetExecution().IsEnabled {
+			return
+		}
 		var depLastRan time.Time
 		if t := before.GetExecution().GetLastRanAtTime(); t != nil {
 			depLastRan = *t
@@ -107,6 +110,10 @@ func executeTaskWithDependencies(task Task) {
 	ExecuteTask(task)
 
 	if after := task.GetRunAfter(); after != nil {
+		if !after.GetExecution().IsEnabled {
+			return
+		}
+
 		var depLastRan time.Time
 		if t := after.GetExecution().GetLastRanAtTime(); t != nil {
 			depLastRan = *t

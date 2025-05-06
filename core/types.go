@@ -188,6 +188,14 @@ func (e *Execution) SetLastRanAt(t time.Time) {
 	e.LastRanAt = t.UTC().Format(time.RFC3339)
 }
 
+func (e *Execution) SetIsEnabled(value bool) {
+	e.IsEnabled = value
+}
+
+func (e *Execution) GetIsEnabled() bool {
+	return e.IsEnabled
+}
+
 // just making sure that the methods align with the
 // http standars
 // also uppercasing the method input

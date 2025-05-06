@@ -87,6 +87,13 @@ func GetTask(taskType, taskName string) (Task, error) {
 	return data, nil
 }
 
+func DeleteTask(taskType, taskName string) error {
+	if !TaskExists(taskType, taskName) {
+		return fmt.Errorf("a %s task with the name %s does not exist", taskType, taskName)
+	}
+	return os.Remove(filepath.Join(TaskLocation, taskType, fmt.Sprintf("%s.json", taskName)))
+}
+
 func CreateTask(taskName, taskType string) (string, error) {
 	if TaskExists(taskType, taskName) {
 		return "", fmt.Errorf("a %s task with the name %s already exists", taskType, taskName)
@@ -174,6 +181,49 @@ func UpdateRanAt(taskType, taskName string) error {
 		}
 	case HttpTask:
 		(&t.Execution).SetLastRanAt(now)
+		if err := SaveTask(t, taskType); err != nil {
+			return fmt.Errorf("failed to save updated http task: %w", err)
+		}
+	default:
+		return fmt.Errorf("unknown task type for update")
+	}
+
+	return nil
+}
+
+func UpdateTaskStatus(taskType, taskName string, status bool) error {
+	if !TaskExists(taskType, taskName) {
+		return fmt.Errorf("no task with the name %s of type %s found", taskName, taskType)
+	}
+
+	task, err := GetTask(taskType, taskName)
+	if err != nil {
+		return fmt.Errorf("unable to get task with name %s of type %s", taskName, taskType)
+	}
+
+	switch t := task.(type) {
+	case ShellTask:
+		if t.Execution.GetIsEnabled() == status {
+			if status == true {
+				return fmt.Errorf("shell task %s is already enabled", taskName)
+			} else {
+				return fmt.Errorf("shell task %s is already disabled", taskName)
+			}
+		}
+
+		t.Execution.SetIsEnabled(status)
+		if err := SaveTask(t, taskType); err != nil {
+			return fmt.Errorf("failed to save updated shell task: %w", err)
+		}
+	case HttpTask:
+		if t.Execution.GetIsEnabled() == status {
+			if status == true {
+				return fmt.Errorf("http task %s is already enabled", taskName)
+			} else {
+				return fmt.Errorf("http task %s is already disabled", taskName)
+			}
+		}
+		t.Execution.SetIsEnabled(status)
 		if err := SaveTask(t, taskType); err != nil {
 			return fmt.Errorf("failed to save updated http task: %w", err)
 		}
