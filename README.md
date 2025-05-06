@@ -234,21 +234,120 @@ HTTP tasks support configurable methods, headers, and optional JSON bodies. Sche
 
 ## Available Commands
 
-| Command      | Description                                                  |
-|--------------|--------------------------------------------------------------|
-| `add`        | Create a new task configuration                              |
-| `clear-logs` | Wipe log files                                               |
-| `completion` | Generate the autocompletion script for the specified shell   |
-| `help`       | Help about any command                                       |
-| `list`       | Lists available tasks                                        |
-| `logs`       | Tail the latest log file in real time                        |
-| `run`        | Runs a specified task                                        |
-| `setup`      | Creates necessary files and folders for Schedulr            |
-| `start`      | Starts the scheduler daemon                                  |
-| `status`     | Check if scheduler daemon is running                         |
-| `stop`       | Stops the scheduler daemon                                   |
+| Command      | Description                                                |
+|--------------|------------------------------------------------------------|
+| `add`        | Create a new task configuration                            |
+| `remove`     | Deletes a task configuration                               |
+| `clear-logs` | Wipe log files                                             |
+| `completion` | Generate the autocompletion script for the specified shell |
+| `help`       | Help about any command                                     |
+| `list`       | Lists available tasks                                      |
+| `logs`       | Check logs for both tasks and app logs                     |
+| `run`        | Runs a specified task                                      |
+| `setup`      | Creates necessary files and folders for Schedulr           |
+| `start`      | Starts the scheduler daemon                                |
+| `status`     | Check if scheduler daemon is running                       |
+| `stop`       | Stops the scheduler daemon                                 |
+| `enable`     | Enables a task                                             |
+| `disable`    | Disables a task                                            |
 
+# Setting up Schedulr as a Service
 
+## ✅ Linux (systemd)
+
+### Create the service entry
+```bash 
+vim /etc/systemd/system/schedulr.service
+```
+
+### Service File Contents
+```ini
+[Unit]
+Description=Schedulr background service
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/home/your-username/schedulr/schedulr start
+WorkingDirectory=/home/your-username/schedulr
+Restart=on-failure
+RestartSec=5
+User=your-username
+
+[Install]
+WantedBy=default.target
+```
+
+### Enable and Start the Service
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable schedulr
+sudo systemctl start schedulr
+sudo systemctl status schedulr
+```
+
+---
+
+## ✅ macOS (launchd)
+
+### Create the launchd service file
+
+**For user services:**
+```bash
+vim ~/Library/LaunchAgents/com.yourusername.schedulr.plist
+```
+
+**For system-wide services:**
+```bash
+sudo vim /Library/LaunchDaemons/com.yourusername.schedulr.plist
+```
+
+### Service File Contents (User version)
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" 
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.yourusername.schedulr</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/your-username/schedulr/schedulr</string>
+        <string>start</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/your-username/schedulr</string>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>KeepAlive</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>/tmp/schedulr.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/tmp/schedulr.err</string>
+</dict>
+</plist>
+```
+
+### Load and Start the Service
+```bash
+launchctl load ~/Library/LaunchAgents/com.yourusername.schedulr.plist
+launchctl start com.yourusername.schedulr
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.yourusername.schedulr.plist
+```
+
+### Stop or Unload the Service
+```bash
+launchctl stop com.yourusername.schedulr
+launchctl unload ~/Library/LaunchAgents/com.yourusername.schedulr.plist
+```
 ## Licence
 ### MIT License
 
