@@ -125,6 +125,7 @@ func CreateTask(taskName, taskType string) (string, error) {
 			Name:      taskName,
 			Execution: taskExecution,
 			Command:   "",
+			ShellType: "bash",
 		}
 	case HTTP_TASK:
 		taskSource = HttpTask{

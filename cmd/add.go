@@ -19,8 +19,8 @@ Supported task types: shell, http
  - http is a task which sends a http request
 
 Examples:
- - schedulr add shell "Backup Database"
- - schedulr add http "Ping API"  
+ - scheduld add shell backup-database
+ - schedulr add http "Ping API"
 	`,
 	Args: cobra.ExactArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {

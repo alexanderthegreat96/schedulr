@@ -47,7 +47,7 @@ Example:
 			runBefore := task.GetRunBefore()
 			runAfter := task.GetRunAfter()
 
-			desc, firstRun, nextRun := core.DescribeSchedule(exec, time.Now())
+			desc, nextRun := core.DescribeSchedule(exec, time.Now())
 
 			if exec.IsEnabled {
 				fmt.Fprintf(w, "Status:\tENABLED\n")
@@ -64,7 +64,6 @@ Example:
 
 			fmt.Fprintf(w, "Name:\t%s\n", name)
 			fmt.Fprintf(w, "Schedule:\t%s\n", desc)
-			fmt.Fprintf(w, "First Run:\t%s\n", firstRun.Format("2006-01-02 15:04:05"))
 			fmt.Fprintf(w, "Next Run:\t%s\n", nextRun.Format("2006-01-02 15:04:05"))
 			fmt.Fprintf(w, "Last Ran:\t%s\n", lastRanFormatted)
 

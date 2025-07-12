@@ -18,7 +18,7 @@ func ExecuteTask(task Task) {
 	switch t := task.(type) {
 	case ShellTask:
 		LogMessageToFile(fmt.Sprintf("Executing shell task: %s", t.GetName()), "info", "app", nil)
-		cmd := getShellCommand(t.GetCommand()) // os aware
+		cmd := getShellCommand(t.GetCommand(), t.ShellType) // os aware
 
 		output, err := cmd.CombinedOutput()
 		if err != nil {
@@ -172,9 +172,23 @@ func isZeroInterval(interval Interval) bool {
 		interval.Days == 0 && interval.Hours == 0 && interval.Minutes == 0 && interval.Seconds == 0
 }
 
-func getShellCommand(command string) *exec.Cmd {
+func getShellCommand(command, shellType string) *exec.Cmd {
 	if runtime.GOOS == "windows" {
-		return exec.Command("cmd", "/C", command)
+		if shellType == "powershell" {
+			powershellType := "powershell"
+			if _, err := exec.LookPath("pwsh"); err == nil {
+				powershellType = "pwsh"
+			}
+
+			return exec.Command(
+				powershellType,
+				"-NoLogo", "-NoProfile", "-NonInteractive",
+				"-Command", command,
+			)
+		} else {
+			return exec.Command("cmd", "/C", command)
+		}
 	}
+
 	return exec.Command("sh", "-c", command)
 }

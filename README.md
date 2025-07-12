@@ -59,7 +59,7 @@ Schedulr is a lightweight, crontab-inspired task scheduler that executes tasks b
    Use the `add` command to define a new task. For example:
 
    ```bash
-   ./schedulr add shell "My Script Task"
+   ./schedulr add shell "my-task"
    ```
 
    You can also use `http` as the task type to send HTTP requests.
@@ -177,8 +177,8 @@ This ensures that task names are matched reliably regardless of formatting or ca
 Examples:
 
 ```bash
-schedulr add shell "Backup Database"
-schedulr add http "Ping API"
+schedulr add shell backup-database
+schedulr add http ping-api
 ```
 
 ### `logs`
@@ -210,7 +210,61 @@ Use `schedulr help` or `schedulr --help` to view detailed information about all 
 
 ### Scheduling
 
-Each task is scheduled based on its delay and interval settings. Recurring tasks are automatically rescheduled.
+Every task lives in a plain JSON file that Schedulr watches. **Edit it at any time — every field is hot‑reloaded, no service restart required.**
+
+```jsonc
+{
+  "name": "MyTask",            // unique, human‑friendly label
+  "execution": {
+    "interval": {               // run *again* after this span
+      "years":   0,
+      "months":  0,
+      "weeks":   0,
+      "days":    0,
+      "hours":   0,
+      "minutes": 0,
+      "seconds": 0
+    },
+    "delay": {                  // optional pause *before* first run
+      "years":   0,
+      "months":  0,
+      "weeks":   0,
+      "days":    0,
+      "hours":   0,
+      "minutes": 0,
+      "seconds": 0
+    },
+    "last_ran_at": "",         // auto‑filled timestamp (RFC 3339)
+    "run_before": "",          // a different task set in here like: AnotherTask
+    "run_after":  "",          // same as above, run after THIS GIVEN TASK -> just a task name
+    "is_enabled": false         // flip to true to activate
+  },
+  "command":    "",            // exact shell line to execute
+  "shell_type": ""             // linux / macos use the default execution agent. For windows use: cmd / powershell
+}
+```
+
+### How Schedulr interprets the fields
+
+| Field                        | Meaning                                                                                      |
+| ---------------------------- | -------------------------------------------------------------------------------------------- |
+| **delay**                    | Wait this long *after enabling* before the very first run.                                   |
+| **interval**                 | How long to wait *after each run* before scheduling the next one. All zeros → one‑shot task. |
+| **last\_ran\_at**            | Updated by Schedulr; normally leave it alone.                                                |
+| **run\_after / run\_before** | Define a window. If now < run\_after or now > run\_before the task is skipped.               |
+| **is\_enabled**              | Master on/off switch. `false` pauses without resetting counters.                             |
+
+All numeric sub‑fields accept any non‑negative integer, so you can express everything from **“every 90 seconds”** (`seconds = 90`) to **“once a quarter”** (`months = 3`).
+
+### Choosing a shell
+
+| Platform      | Default | Accepted values for `shell_type`                |
+| ------------- |---------| ----------------------------------------------- |
+| Windows       | `cmd`   | `cmd` (default)  •  `powershell`                |
+| Linux / macOS | `bash`  | Any executable on `$PATH` (e.g., `bash`, `zsh`) |
+
+*Leave **`shell_type`** empty to use the default above.* Specify `"powershell"` on Windows for cmdlet goodness, or `"cmd"` for classic batch syntax.
+
 
 ### Dependencies
 
