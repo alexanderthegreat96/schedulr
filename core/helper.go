@@ -192,7 +192,7 @@ func NextRunFromNow(exec Execution) time.Duration {
 	return firstRun.Sub(time.Now())
 }
 
-func DescribeSchedule(exec Execution, start time.Time) (string, time.Time, time.Time) {
+func DescribeSchedule(exec Execution, start time.Time) (string, time.Time) {
 	firstRun := calculateNextRun(start, exec.Delay)
 	if t := exec.GetLastRanAtTime(); t != nil {
 		firstRun = calculateNextRun(*exec.GetLastRanAtTime(), exec.Interval)
@@ -212,7 +212,7 @@ func DescribeSchedule(exec Execution, start time.Time) (string, time.Time, time.
 
 	description := fmt.Sprintf("This task runs %s, %s.", delayDesc, intervalDesc)
 
-	return description, firstRun, nextRun
+	return description, nextRun
 }
 
 func GetFirstAndNextRun(start time.Time, lastRanAt time.Time, delay Interval, interval Interval) (time.Time, time.Time) {

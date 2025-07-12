@@ -47,13 +47,14 @@ type Execution struct {
 
 type ShellTask struct {
 	Name      string    `json:"name"`
-	Execution Execution `json:"exection"`
+	Execution Execution `json:"execution"`
 	Command   string    `json:"command"`
+	ShellType string    `json:"shell_type"`
 }
 
 type HttpTask struct {
 	Name      string         `json:"name"`
-	Execution Execution      `json:"exection"`
+	Execution Execution      `json:"execution"`
 	URL       string         `json:"url"`
 	Method    string         `json:"method"`
 	Headers   map[string]any `json:"headers"`
