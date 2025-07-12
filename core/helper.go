@@ -132,18 +132,6 @@ func ReadPidFile() (int, error) {
 	return pid, nil
 }
 
-func GetProcAttr() *syscall.SysProcAttr {
-	if runtime.GOOS == "windows" {
-		// no clue if this works on windows
-		// will leave it here for building reasons anyways
-		return &syscall.SysProcAttr{}
-	}
-
-	// linux / unix terminal detach
-	return &syscall.SysProcAttr{
-		Setsid: true,
-	}
-}
 func SetupGracefulShutdown() {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)

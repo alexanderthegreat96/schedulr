@@ -11,7 +11,11 @@ PLATFORMS=(
     "freebsd/386"    # FreeBSD 32-bit
     "openbsd/amd64"  # OpenBSD 64-bit
     "openbsd/386"    # OpenBSD 32-bit
+    "windows/amd64"  # Windows 64-bit
+    "windows/386"    # Windows 32-bit
+    "windows/arm64"  # Windows ARM 64-bit
 )
+
 OUTPUT_DIR="./bin"
 TIMESTAMP=$(date +"%Y-%m-%d_%H-%M-%S")
 
