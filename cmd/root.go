@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"runtime"
 
 	"github.com/alexanderthegreat96/schedulr/core"
 
@@ -9,11 +10,18 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var (
+	shortDesc = fmt.Sprintf("A modern task scheduler for %s/%s without the complexity of crontab syntax.\n\n", runtime.GOOS, runtime.GOARCH)
+	longDesc  = fmt.Sprintf(`Schedulr is a lightweight, flexible task runner that executes commands based on JSON configurations.
+It works like crontab but without the need for complex syntax, allowing you to define and manage tasks with ease.
+
+Running on: %s/%s.`, runtime.GOOS, runtime.GOARCH)
+)
+
 var rootCmd = &cobra.Command{
 	Use:   "scheduler",
-	Short: "A modern task scheduler without the complexity of crontab syntax.",
-	Long: `Scheduler is a lightweight, flexible task runner that executes commands based on JSON configurations.
-It works like crontab but without the need for complex syntax, allowing you to define and manage tasks with ease.`,
+	Short: shortDesc,
+	Long:  longDesc,
 }
 
 func Execute() {
@@ -30,6 +38,7 @@ func Execute() {
 	if core.AppConfig().DevMode == true {
 		core.LogMessage("App is running in DEV mode.", "info")
 	}
+
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)
 	}

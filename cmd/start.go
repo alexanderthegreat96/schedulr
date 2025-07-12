@@ -30,7 +30,13 @@ var startCmd = &cobra.Command{
 		}
 
 		// fallback to schedulr service and start the daemon directly
-		process := exec.Command(os.Args[0], "daemon")
+		execFile, err := os.Executable()
+		if err != nil {
+			core.LogMessage(fmt.Sprintf("Could not get executable path: %v", err), "error")
+			return
+		}
+
+		process := exec.Command(execFile, "daemon")
 
 		process.Stdout = nil
 		process.Stderr = nil
