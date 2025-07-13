@@ -177,7 +177,7 @@ func DescribeInterval(interval Interval, start time.Time, intervalType string) (
 
 func NextRunFromNow(exec Execution) time.Duration {
 	firstRun, _ := GetFirstAndNextRun(time.Now(), *exec.GetLastRanAtTime(), exec.Delay, exec.Interval)
-	return firstRun.Sub(time.Now())
+	return time.Until(firstRun)
 }
 
 func DescribeSchedule(exec Execution, start time.Time) (string, time.Time) {

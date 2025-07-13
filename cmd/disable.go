@@ -40,7 +40,7 @@ Notice: we are using pascal-case.
 			return
 		}
 
-		core.LogMessage(fmt.Sprintf("Task: %s of type %s was disabled.", taskType, taskName), "success")
+		core.LogMessage(fmt.Sprintf("Task: %s of type %s was disabled.", taskName, taskType), "success")
 	},
 }
 

@@ -9,22 +9,29 @@ import (
 	"os/exec"
 	"runtime"
 	"strings"
+	"syscall"
 	"time"
 )
 
 func ExecuteTask(task Task) {
-	now := time.Now().UTC()
+	now := time.Now()
 
 	switch t := task.(type) {
 	case ShellTask:
 		LogMessageToFile(fmt.Sprintf("Executing shell task: %s", t.GetName()), "info", "app", nil)
-		cmd := getShellCommand(t.GetCommand(), t.ShellType) // os aware
+		cmd := getShellCommand(t.GetCommand(), t.ShellType, t.IsGui) // os aware
 
 		output, err := cmd.CombinedOutput()
 		if err != nil {
 			LogMessageToFile(fmt.Sprintf("Error executing shell task %s: %v", t.GetName(), err), "error", "task", task)
 		} else {
-			LogMessageToFile(fmt.Sprintf("Shell task %s output: %s\n", t.GetName(), strings.TrimSpace(string(output))), "info", "task", task)
+			taskOutput := strings.TrimSpace(string(output))
+			if taskOutput == "" {
+				taskOutput = "No content"
+			}
+
+			LogMessageToFile(fmt.Sprintf("Shell task %s output: %s\n", t.GetName(), taskOutput), "info", "task", task)
+
 			(&t.Execution).SetLastRanAt(now)
 
 			if err := SaveTask(t, SHELL_TASK); err != nil {
@@ -171,8 +178,9 @@ func isZeroInterval(interval Interval) bool {
 	return interval.Years == 0 && interval.Months == 0 && interval.Weeks == 0 &&
 		interval.Days == 0 && interval.Hours == 0 && interval.Minutes == 0 && interval.Seconds == 0
 }
+func getShellCommand(command, shellType string, isGui bool) *exec.Cmd {
+	var cmd *exec.Cmd
 
-func getShellCommand(command, shellType string) *exec.Cmd {
 	if runtime.GOOS == "windows" {
 		if shellType == "powershell" {
 			powershellType := "powershell"
@@ -180,15 +188,27 @@ func getShellCommand(command, shellType string) *exec.Cmd {
 				powershellType = "pwsh"
 			}
 
-			return exec.Command(
-				powershellType,
-				"-NoLogo", "-NoProfile", "-NonInteractive",
-				"-Command", command,
-			)
+			args := []string{"-NoLogo", "-NoProfile"}
+			if !isGui {
+				args = append(args, "-NonInteractive")
+			}
+			args = append(args, "-Command", command)
+
+			cmd = exec.Command(powershellType, args...)
 		} else {
-			return exec.Command("cmd", "/C", command)
+			cmd = exec.Command("cmd", "/C", command)
 		}
+
+		if isGui {
+			cmd.SysProcAttr = &syscall.SysProcAttr{
+				HideWindow: false,
+			}
+		}
+	} else if runtime.GOOS == "darwin" && isGui {
+		cmd = exec.Command("open", "-a", command)
+	} else {
+		cmd = exec.Command("sh", "-c", command)
 	}
 
-	return exec.Command("sh", "-c", command)
+	return cmd
 }

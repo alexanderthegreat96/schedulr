@@ -50,6 +50,7 @@ type ShellTask struct {
 	Execution Execution `json:"execution"`
 	Command   string    `json:"command"`
 	ShellType string    `json:"shell_type"`
+	IsGui     bool      `json:"is_gui"`
 }
 
 type HttpTask struct {
@@ -186,7 +187,7 @@ func (e Execution) GetLastRanAtTime() *time.Time {
 }
 
 func (e *Execution) SetLastRanAt(t time.Time) {
-	e.LastRanAt = t.UTC().Format(time.RFC3339)
+	e.LastRanAt = t.Format(time.RFC3339)
 }
 
 func (e *Execution) SetIsEnabled(value bool) {

@@ -23,7 +23,7 @@ Example: schedulr run shell my-task-name
 		task, err := core.GetTask(taskType, taskName)
 
 		if err != nil {
-			core.LogMessage(fmt.Sprintf("Unable to execute task: %s", err.Error()), "error")
+			core.LogMessage(fmt.Sprintf("Unable to execute task: %s, Error: %s", taskName, err.Error()), "error")
 			return
 		}
 

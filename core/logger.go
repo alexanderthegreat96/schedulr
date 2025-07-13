@@ -150,7 +150,7 @@ func getOrCreateLogFilePathForTask(task Task) string {
 		return path
 	}
 
-	timestamp := time.Now().UTC().Format("2006-01-02T15-04-05.000Z")
+	timestamp := time.Now().Format("2006-01-02T15-04-05.000Z")
 	RootPath, _ := GetRootDir()
 	name := sanitizeFileName(task.GetName())
 	path := filepath.Join(RootPath, TASK_LOGS_DIR, fmt.Sprintf("%s_%s.log", name, timestamp))

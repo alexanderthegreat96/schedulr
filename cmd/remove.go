@@ -40,7 +40,7 @@ Notice: we are using pascal-case.
 			return
 		}
 
-		core.LogMessage(fmt.Sprintf("Task: %s of type %s was deleted.", taskType, taskName), "success")
+		core.LogMessage(fmt.Sprintf("Task: %s of type %s was deleted.", taskName, taskType), "success")
 	},
 }
 
