@@ -30,7 +30,7 @@ Schedulr is a lightweight, crontab-inspired task scheduler that executes tasks b
 ### Prerequisites
 
 - [Go](https://golang.org/dl/) 1.16 or later
-- Mac OS / Linux
+- Mac OS / Linux / Windows
 
 ### Usage
 

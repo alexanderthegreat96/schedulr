@@ -3,6 +3,11 @@
 
 package core
 
+import (
+	"os"
+	"syscall"
+)
+
 func FindProcess(pid int) (process *os.Process, err error) {
 	handle, err := syscall.OpenProcess(syscall.PROCESS_QUERY_INFORMATION, false, uint32(pid))
 	if err != nil {
