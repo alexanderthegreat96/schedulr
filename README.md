@@ -2,6 +2,8 @@
 
 Schedulr is a lightweight, crontab-inspired task scheduler that executes tasks based on JSON configurations. It supports shell commands and HTTP requests, running as a daemon with configurable execution intervals.
 
+![schedulr-preview.png](schedulr-preview.png)
+
 ## Features
 
 - **Simple Scheduling:**  
