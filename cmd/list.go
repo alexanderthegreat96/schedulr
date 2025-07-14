@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"text/tabwriter"
 	"time"
@@ -63,14 +64,23 @@ Example:
 			}
 
 			fmt.Fprintf(w, "Name:\t%s\n", name)
+			fmt.Fprintf(w, "Config Path:\t%s\n", filepath.Join(core.TaskLocation, taskType, fmt.Sprintf("%s.json", name)))
 			fmt.Fprintf(w, "Schedule:\t%s\n", desc)
 			fmt.Fprintf(w, "Next Run:\t%s\n", nextRun.Format("2006-01-02 15:04:05"))
 			fmt.Fprintf(w, "Last Ran:\t%s\n", lastRanFormatted)
+			fmt.Fprintf(w, "Run Before:\t%s\n", core.DefaultValueIfNull(runBefore, "string"))
+			fmt.Fprintf(w, "Run After:\t%s\n", core.DefaultValueIfNull(runAfter, "string"))
 
 			switch taskType {
 			case core.SHELL_TASK:
 				command := core.DefaultValueIfNull(task.GetCommand(), "string")
 				fmt.Fprintf(w, "Command:\t%s\n", command)
+
+				shellType := core.DefaultValueIfNull(task.GetShellType(), "string")
+				fmt.Fprintf(w, "ShellType:\t%s\n", shellType)
+
+				isGui := core.DefaultValueIfNull(task.GetIsGui(), "bool")
+				fmt.Fprintf(w, "IsGUI:\t%t\n", isGui)
 			case core.HTTP_TASK:
 				method := core.DefaultValueIfNull(task.GetMethod(), "string")
 				url := core.DefaultValueIfNull(task.GetURL(), "string")
