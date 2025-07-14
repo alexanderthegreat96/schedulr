@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"text/tabwriter"
 	"time"
@@ -63,6 +64,7 @@ Example:
 			}
 
 			fmt.Fprintf(w, "Name:\t%s\n", name)
+			fmt.Fprintf(w, "Config Path:\t%s\n", filepath.Join(core.TaskLocation, taskType, fmt.Sprintf("%s.json", name)))
 			fmt.Fprintf(w, "Schedule:\t%s\n", desc)
 			fmt.Fprintf(w, "Next Run:\t%s\n", nextRun.Format("2006-01-02 15:04:05"))
 			fmt.Fprintf(w, "Last Ran:\t%s\n", lastRanFormatted)
