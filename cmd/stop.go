@@ -68,18 +68,12 @@ var stopCmd = &cobra.Command{
 		}
 
 		if runtime.GOOS == "windows" {
-			handle, err := syscall.OpenProcess(syscall.PROCESS_QUERY_INFORMATION, false, uint32(pid))
+			process, err = core.FindProcess(pid)
 			if err != nil {
-				core.LogMessage(fmt.Sprintf("OpenProcess failed: %s", err.Error()), "error")
+				core.LogMessage(fmt.Sprintf("Failed to find process: %s", err.Error()), "error")
 				return
 			}
-			syscall.CloseHandle(handle)
 
-			process, err = os.FindProcess(pid)
-			if err != nil {
-				core.LogMessage(fmt.Sprintf("os.FindProcess failed: %s", err.Error()), "error")
-				return
-			}
 		} else {
 			process, err = os.FindProcess(pid)
 			if err != nil || process.Signal(syscall.Signal(0)) != nil {

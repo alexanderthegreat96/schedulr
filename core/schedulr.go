@@ -9,7 +9,6 @@ import (
 	"os/exec"
 	"runtime"
 	"strings"
-	"syscall"
 	"time"
 )
 
@@ -178,6 +177,7 @@ func isZeroInterval(interval Interval) bool {
 	return interval.Years == 0 && interval.Months == 0 && interval.Weeks == 0 &&
 		interval.Days == 0 && interval.Hours == 0 && interval.Minutes == 0 && interval.Seconds == 0
 }
+
 func getShellCommand(command, shellType string, isGui bool) *exec.Cmd {
 	var cmd *exec.Cmd
 
@@ -200,9 +200,7 @@ func getShellCommand(command, shellType string, isGui bool) *exec.Cmd {
 		}
 
 		if isGui {
-			cmd.SysProcAttr = &syscall.SysProcAttr{
-				HideWindow: false,
-			}
+			PreventWindowHide(cmd)
 		}
 	} else if runtime.GOOS == "darwin" && isGui {
 		cmd = exec.Command("open", "-a", command)

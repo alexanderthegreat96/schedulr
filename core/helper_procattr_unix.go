@@ -3,7 +3,9 @@
 
 package core
 
-import "syscall"
+import (
+	"syscall"
+)
 
 func GetProcAttr() *syscall.SysProcAttr {
 	return &syscall.SysProcAttr{
