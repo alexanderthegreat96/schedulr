@@ -18,7 +18,7 @@ func ExecuteTask(task Task) {
 	switch t := task.(type) {
 	case ShellTask:
 		LogMessageToFile(fmt.Sprintf("Executing shell task: %s", t.GetName()), "info", "app", nil)
-		cmd := getShellCommand(t.GetCommand(), t.ShellType, t.IsGui) // os aware
+		cmd := getShellCommand(t.GetCommand(), t.GetShellType(), t.GetIsGui()) // os aware
 
 		output, err := cmd.CombinedOutput()
 		if err != nil {

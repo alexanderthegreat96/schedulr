@@ -69,6 +69,8 @@ type Task interface {
 	GetName() string
 	GetExecution() Execution
 	GetCommand() string
+	GetShellType() string
+	GetIsGui() bool
 	GetURL() string
 	GetMethod() string
 	GetRunBefore() Task
@@ -107,6 +109,10 @@ func (s ShellTask) GetRunAfter() Task {
 func (s ShellTask) GetCommand() string {
 	return s.Command
 }
+
+func (s ShellTask) GetShellType() string { return s.ShellType }
+
+func (s ShellTask) GetIsGui() bool { return s.IsGui }
 
 func (s ShellTask) GetURL() string {
 	return "not-available"
@@ -154,6 +160,10 @@ func (h HttpTask) GetRunAfter() Task {
 func (h HttpTask) GetCommand() string {
 	return "not-available"
 }
+
+func (h HttpTask) GetShellType() string { return "not-available" }
+
+func (h HttpTask) GetIsGui() bool { return false }
 
 func (h HttpTask) GetURL() string {
 	return h.URL
