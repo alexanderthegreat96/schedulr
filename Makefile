@@ -34,7 +34,7 @@ clean:
 	rm -rf core/app-logs core/task-logs
 
 build:
-	go build -o bin/schedulr
+	./build.sh
 
 run: build
 	./bin/schedulr
