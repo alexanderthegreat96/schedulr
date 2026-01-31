@@ -1,0 +1,29 @@
+{
+  "name": "MyTask",
+  "execution": {
+    "interval": {
+      "years": 0,
+      "months": 0,
+      "weeks": 0,
+      "days": 0,
+      "hours": 0,
+      "minutes": 0,
+      "seconds": 0
+    },
+    "delay": {
+      "years": 0,
+      "months": 0,
+      "weeks": 0,
+      "days": 0,
+      "hours": 0,
+      "minutes": 0,
+      "seconds": 0
+    },
+    "last_ran_at": "",
+    "run_before": "",
+    "run_after": "",
+    "is_enabled": false
+  },
+  "command": "",
+  "shell_type": ""
+}

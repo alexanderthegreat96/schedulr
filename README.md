@@ -90,7 +90,29 @@ Schedulr is a lightweight, crontab-inspired task scheduler that executes tasks b
 ./schedulr help
 ```
 
+8. **Setup as auto-start in Linux / Macos**
 
+In order to auto-start this and use the `schedulr-daemon`, it's recomanded that you use whatever auto-start service you might have
+and run the following command: `rm -rf /home/your-user/schedulr/schedulr.pid && /home/your-user/schedulr/schedulr start`.
+This will ensure the system won't have to locate a process ID that has been lost due to a shutdown / reboot.
+
+Example on linux: 
+
+```bash
+cd ~/.config/autostart/
+vim schedulr.desktop
+```
+
+```bash
+[Desktop Entry]
+Type=Application
+Name=Schedulr Daemon
+Exec=sh -c "rm rf /home/your-user/schedulr/schedulr.pid && /home/your-user/schedulr/schedulr start"
+Hidden=true
+NoDisplay=true
+X-GNOME-Autostart-enabled=true
+
+```
 
 ### Developing
 
@@ -99,6 +121,40 @@ Schedulr is a lightweight, crontab-inspired task scheduler that executes tasks b
    ```bash
    git clone https://github.com/yourusername/schedulr.git
    cd schedulr
+   ```
+
+2. **Running Tests**
+
+   Schedulr includes a comprehensive test suite for both the core scheduler and command-line interface. Use the provided Makefile to run tests:
+
+   ```bash
+   # Run all tests
+   make test
+
+   # Run tests with verbose output
+   make test-verbose
+
+   # Run tests with coverage report (generates coverage.html)
+   make test-coverage
+
+   # Run only core package tests
+   make test-core
+
+   # Run only cmd package tests
+   make test-cmd
+
+   # Clean test cache and artifacts
+   make clean
+   ```
+
+   Tests are organized by package and can also be run directly using Go:
+
+   ```bash
+   # Run a specific test
+   go test ./core -run TestCreateTask -v
+
+   # Run tests with race condition detection
+   go test -race ./...
    ```
 
 ## Usage
@@ -311,12 +367,43 @@ HTTP tasks support configurable methods, headers, and optional JSON bodies. Sche
 
 ## ✅ Linux (systemd)
 
+### Using the Auto-Start Script
+
+Schedulr includes a built-in `auto-start.sh` script that simplifies daemon startup on Linux. This script:
+
+- Cleans up any stale PID file from previous crashes
+- Starts the Schedulr daemon
+- Logs all output to `schedulr_autostart.log` for debugging
+- Verifies the daemon started successfully
+
+**Usage:**
+
+```bash
+chmod +x auto-start.sh
+./auto-start.sh
+```
+
+You can integrate this into your systemd service or cron job for automatic startup:
+
+```bash
+# Make it executable
+chmod +x /path/to/schedulr/auto-start.sh
+
+# Test it directly
+/path/to/schedulr/auto-start.sh
+
+# Check the log
+tail -f /path/to/schedulr/schedulr_autostart.log
+```
+
 ### Create the service entry
 ```bash 
 vim /etc/systemd/system/schedulr.service
 ```
 
 ### Service File Contents
+
+**Option 1: Direct binary execution**
 ```ini
 [Unit]
 Description=Schedulr background service
@@ -325,6 +412,27 @@ After=network.target
 [Service]
 Type=simple
 ExecStart=/home/your-username/schedulr/schedulr start
+WorkingDirectory=/home/your-username/schedulr
+Restart=on-failure
+RestartSec=5
+User=your-username
+
+[Install]
+WantedBy=default.target
+```
+
+**Option 2: Using the auto-start.sh script (recommended)**
+
+The auto-start.sh script handles PID cleanup and logging automatically:
+
+```ini
+[Unit]
+Description=Schedulr background service
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/home/your-username/schedulr/auto-start.sh
 WorkingDirectory=/home/your-username/schedulr
 Restart=on-failure
 RestartSec=5

@@ -386,59 +386,19 @@ func AutoSetup() error {
 		}
 	}
 
-	configFilePath := filepath.Join(RootPath, "schedulr.config")
-	if _, err := os.Stat(configFilePath); os.IsNotExist(err) {
-		configFileContents := `# ====================
-# Development Settings
-# ====================
+	err := createConfigFile(RootPath)
+	if err != nil {
+		return err
+	}
 
-# Enable developer mode (adds extra debug info, logs, etc.)
-# Set to true only during development.
-SCHEDULR_DEV=false
-
-# ===================
-# Logging Configuration
-# ===================
-
-# Enable or disable log writing to files
-LOG_DATA=true
-
-# Interval (in seconds) for wiping old logs
-# Useful for cleanup in long-running daemons
-LOG_WIPE_INTERVAL_SECONDS=100
-
-# ===================
-# Worker Configuration
-# ===================
-
-# Number of parallel worker threads/tasks to run
-WORKER_COUNT=4
-
-# ============================
-# Service Execution Mode
-# ============================
-
-# Determines whether Schedulr should run as a system service (e.g., via systemd/launchd)
-# true  = run in background as a system service (default)
-# false = run manually or as a foreground process
-ENABLE_SCHEDULR_SERVICE=true
-
-# System command to manage the service if ENABLE_SCHEDULR_SERVICE is true
-# Set to 'systemctl' for Linux or 'launchctl' for macOS
-SYSTEMD_COMMAND=systemctl
-LAUNCHD_COMMAND=launchctl
-
-# The name of the service (used for systemd or launchctl)
-SERVICE_NAME=schedulr
-
-		`
-		if err := os.WriteFile(configFilePath, []byte(configFileContents), 0644); err != nil {
-			return fmt.Errorf("failed to create schedulr.config file in: %s: %w", configFilePath, err)
-		}
+	err = createAutoStartScript(RootPath)
+	if err != nil {
+		return err
 	}
 
 	return nil
 }
+
 func IsRunningUnderSystemd() bool {
 	cmd := exec.Command(AppConfig().SystemDCommand, "is-active", AppConfig().ServiceName)
 	output, err := cmd.CombinedOutput()
@@ -497,4 +457,156 @@ func KillLaunchDService() error {
 	}
 	plistPath := fmt.Sprintf("%s/Library/LaunchAgents/%s.plist", homeDir, AppConfig().ServiceName)
 	return exec.Command(AppConfig().LaunchDCommand, "unload", plistPath).Run()
+}
+
+func createConfigFile(RootPath string) error {
+	configFilePath := filepath.Join(RootPath, "schedulr.config")
+	if _, err := os.Stat(configFilePath); os.IsNotExist(err) {
+		configFileContents := `# ====================
+# Development Settings
+# ====================
+
+# Enable developer mode (adds extra debug info, logs, etc.)
+# Set to true only during development.
+SCHEDULR_DEV=false
+
+# ===================
+# Logging Configuration
+# ===================
+
+# Enable or disable log writing to files
+LOG_DATA=true
+
+# Interval (in seconds) for wiping old logs
+# Useful for cleanup in long-running daemons
+LOG_WIPE_INTERVAL_SECONDS=100
+
+# ===================
+# Worker Configuration
+# ===================
+
+# Number of parallel worker threads/tasks to run
+WORKER_COUNT=4
+
+# ============================
+# Service Execution Mode
+# ============================
+
+# Determines whether Schedulr should run as a system service (e.g., via systemd/launchd)
+# true  = run in background as a system service (default)
+# false = run manually or as a foreground process
+ENABLE_SCHEDULR_SERVICE=true
+
+# System command to manage the service if ENABLE_SCHEDULR_SERVICE is true
+# Set to 'systemctl' for Linux or 'launchctl' for macOS
+SYSTEMD_COMMAND=systemctl
+LAUNCHD_COMMAND=launchctl
+
+# The name of the service (used for systemd or launchctl)
+SERVICE_NAME=schedulr
+
+		`
+		if err := os.WriteFile(configFilePath, []byte(configFileContents), 0644); err != nil {
+			return fmt.Errorf("failed to create schedulr.config file in: %s: %w", configFilePath, err)
+		}
+	}
+
+	return nil
+}
+func createAutoStartScript(RootPath string) error {
+	var fileName string
+	var scriptContents string
+
+	if runtime.GOOS == "windows" {
+		fileName = "auto-start.ps1"
+		scriptContents = `# 1. Get the script's actual directory
+$DIR = Split-Path -Parent $MyInvocation.MyCommand.Path
+Set-Location $DIR
+
+# 2. Define Log File
+$LOG_FILE = "schedulr_autostart.log"
+
+# 3. Start Logging (Overwrites the file and shows output in console)
+Start-Transcript -Path $LOG_FILE -Force
+
+Write-Host "---------------------------------------"
+Write-Host "LOG START: $(Get-Date)"
+Write-Host "Working Directory: $DIR"
+
+# 4. Remove PID if it exists
+if (Test-Path "schedulr.pid") {
+    Write-Host "Found old schedulr.pid, removing..."
+    Remove-Item "schedulr.pid" -Force
+} else {
+    Write-Host "No old PID file found. Clean start."
+}
+
+# 5. Run the daemon
+Write-Host "Attempting to start schedulr..."
+Start-Process -FilePath ".\schedulr.exe" -ArgumentList "start" -WindowStyle Hidden
+
+# 6. Check if it actually started
+Start-Sleep -Seconds 2
+if (Get-Process -Name "schedulr" -ErrorAction SilentlyContinue) {
+    Write-Host "SUCCESS: Schedulr is running!"
+} else {
+    Write-Host "FAILED: Schedulr did not start."
+}
+
+Write-Host "---------------------------------------"
+Stop-Transcript`
+
+	} else {
+		// macos / linux
+		fileName = "auto-start.sh"
+		scriptContents = `#!/bin/bash
+# 1. Get the script's actual directory
+DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &> /dev/null && pwd)
+cd "$DIR" || { echo "Error: Could not change directory"; exit 1; }
+
+# 2. Define Log File
+LOG_FILE="schedulr_autostart.log"
+
+# 3. THE MAGIC LINE: Redirect all output (stdout and stderr)
+# to both the terminal and the log file.
+exec > >(tee "$LOG_FILE") 2>&1
+
+echo "---------------------------------------"
+echo "Timestamp: $(date)"
+echo "Schedulr Auto-Start Script Initialized"
+echo "Working Directory: $DIR"
+
+# Remove PID if it exists
+if [ -f "schedulr.pid" ]; then
+    echo "Found old schedulr.pid, removing..."
+    rm -f "schedulr.pid"
+else
+    echo "No old PID file found. Clean start."
+fi
+
+# Run the daemon
+echo "Attempting to start schedulr..."
+./schedulr start
+
+# Check if it actually started
+sleep 1
+if pgrep -f "schedulr" > /dev/null; then
+    echo "SUCCESS: Schedulr is running!"
+else
+    echo "FAILED: Schedulr did not start. Check permissions of the binary."
+fi
+echo "---------------------------------------"
+		`
+	}
+
+	filePath := filepath.Join(RootPath, fileName)
+
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		err := os.WriteFile(filePath, []byte(scriptContents), 0755)
+		if err != nil {
+			return fmt.Errorf("failed to create auto-start script in %s: %w", filePath, err)
+		}
+	}
+
+	return nil
 }
