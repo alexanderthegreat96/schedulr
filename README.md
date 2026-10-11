@@ -104,7 +104,7 @@ A PID file left behind by a reboot or a crash no longer needs clearing by hand:
 file itself if it isn't.
 
 > If you setup an alias in your terminal, schedulr should be able to resolve the `schedulr.config` automatically, since it is located
-> relative to the working directory. The provided `auto-start.sh` /
+> relative to the schedulr installation directory. The provided `auto-start.sh` /
 > `auto-start.ps1` scripts and the systemd / launchd units below do not keep that into account and they cd in the schedulr dir. You may
 > modify them to use your alias if you wish to.
 
