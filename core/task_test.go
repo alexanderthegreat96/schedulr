@@ -1,7 +1,10 @@
 package core
 
 import (
+	"encoding/json"
+	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -600,5 +603,362 @@ func TestTaskNotDependentWhenEmpty(t *testing.T) {
 
 	if task.GetRunAfter() != nil {
 		t.Error("GetRunAfter should return nil when not set")
+	}
+}
+
+func writeRawTaskFile(t *testing.T, taskType, fileName, contents string) string {
+	t.Helper()
+
+	dir := filepath.Join(TaskLocation, taskType)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		t.Fatalf("failed to create task dir: %v", err)
+	}
+
+	path := filepath.Join(dir, fileName)
+	if err := os.WriteFile(path, []byte(contents), 0644); err != nil {
+		t.Fatalf("failed to write %s: %v", fileName, err)
+	}
+
+	return path
+}
+
+const validShellTaskJSON = `{
+  "name": "Good",
+  "execution": { "interval": { "seconds": 5 }, "is_enabled": true },
+  "command": "echo hi",
+  "shell_type": "cmd"
+}`
+
+func TestGetTasksReportsMalformedFile(t *testing.T) {
+	setupLogTestEnv(t)
+	setupTestEnv(t)
+	InitLogger()
+
+	writeRawTaskFile(t, SHELL_TASK, "Good.json", validShellTaskJSON)
+	writeRawTaskFile(t, SHELL_TASK, "Broken.json", "{ this is not json")
+
+	tasks, err := GetTasks(SHELL_TASK)
+	if err != nil {
+		t.Fatalf("GetTasks failed: %v", err)
+	}
+
+	// the good task still loads - one bad file must not break the listing
+	if len(tasks) != 1 || tasks[0].GetName() != "Good" {
+		t.Fatalf("expected just the parsable task, got %v", taskNames(tasks))
+	}
+
+	logged, err := os.ReadFile(AppLogFilePath)
+	if err != nil {
+		t.Fatalf("failed to read the app log: %v", err)
+	}
+
+	if !strings.Contains(string(logged), "Broken.json") {
+		t.Errorf("the skipped file should be named in the app log, got:\n%s", logged)
+	}
+}
+
+func TestFromTaskJsonToleratesBOM(t *testing.T) {
+	setupTestEnv(t)
+
+	path := writeRawTaskFile(t, SHELL_TASK, "Bommed.json", utf8BOM+validShellTaskJSON)
+
+	task, err := fromTaskJson(path, SHELL_TASK)
+	if err != nil {
+		t.Fatalf("a task file with a leading BOM should still parse, got: %v", err)
+	}
+
+	if task.GetName() != "Good" {
+		t.Errorf("GetName = %q, want %q", task.GetName(), "Good")
+	}
+}
+
+func TestGetTasksLoadsBOMPrefixedFile(t *testing.T) {
+	setupLogTestEnv(t)
+	setupTestEnv(t)
+	InitLogger()
+
+	writeRawTaskFile(t, SHELL_TASK, "Good.json", utf8BOM+validShellTaskJSON)
+
+	tasks, err := GetTasks(SHELL_TASK)
+	if err != nil {
+		t.Fatalf("GetTasks failed: %v", err)
+	}
+
+	if len(tasks) != 1 {
+		t.Fatalf("a BOM-prefixed task file should load, got %v", taskNames(tasks))
+	}
+}
+
+func TestGetTaskDistinguishesMalformedFromMissing(t *testing.T) {
+	setupLogTestEnv(t)
+	setupTestEnv(t)
+	InitLogger()
+
+	writeRawTaskFile(t, SHELL_TASK, "Broken.json", "{ nope")
+
+	_, err := GetTask(SHELL_TASK, "Broken")
+	if err == nil {
+		t.Fatal("GetTask should fail for a malformed task file")
+	}
+
+	if strings.Contains(err.Error(), "does not exist") {
+		t.Errorf("a malformed file should not be reported as missing, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "could not be read") {
+		t.Errorf("the error should say the file could not be read, got: %v", err)
+	}
+
+	// a genuinely absent task still reports as absent
+	_, err = GetTask(SHELL_TASK, "NeverExisted")
+	if err == nil {
+		t.Fatal("GetTask should fail for an absent task")
+	}
+	if !strings.Contains(err.Error(), "does not exist") {
+		t.Errorf("an absent task should report as missing, got: %v", err)
+	}
+}
+
+func taskNames(tasks []Task) []string {
+	names := make([]string, 0, len(tasks))
+	for _, t := range tasks {
+		names = append(names, t.GetName())
+	}
+
+	return names
+}
+
+func TestADivergedTaskIsReachableByItsFileName(t *testing.T) {
+	setupLogTestEnv(t)
+	setupTestEnv(t)
+	setupTaskDirs(t)
+	InitLogger()
+
+	writeRawTaskFile(t, SHELL_TASK, "Alpha.json", `{
+  "name": "Beta",
+  "execution": { "interval": { "seconds": 10 }, "is_enabled": true },
+  "command": "echo hi"
+}`)
+
+	if !TaskExists(SHELL_TASK, "Alpha") {
+		t.Error("the task should be reachable by its file name")
+	}
+
+	task, err := GetTask(SHELL_TASK, "Alpha")
+	if err != nil {
+		t.Fatalf("GetTask by file name failed: %v", err)
+	}
+	if task.GetCommand() != "echo hi" {
+		t.Errorf("unexpected task loaded: %+v", task)
+	}
+
+	if TaskExists(SHELL_TASK, "Beta") {
+		t.Error("the name field should not be an address")
+	}
+	if _, err := GetTask(SHELL_TASK, "Beta"); err == nil {
+		t.Error("GetTask should fail for a name with no file")
+	}
+}
+
+func TestUpdatingADivergedTaskWritesBackToTheSameFile(t *testing.T) {
+	setupLogTestEnv(t)
+	setupTestEnv(t)
+	setupTaskDirs(t)
+	InitLogger()
+
+	writeRawTaskFile(t, SHELL_TASK, "Alpha.json", `{
+  "name": "Beta",
+  "execution": { "interval": { "seconds": 10 }, "is_enabled": false },
+  "command": "echo hi"
+}`)
+
+	if err := UpdateTaskStatus(SHELL_TASK, "Alpha", true); err != nil {
+		t.Fatalf("UpdateTaskStatus failed: %v", err)
+	}
+
+	task, err := GetTask(SHELL_TASK, "Alpha")
+	if err != nil {
+		t.Fatalf("GetTask failed: %v", err)
+	}
+	if !task.GetExecution().IsEnabled {
+		t.Error("the enable should have been written to Alpha.json")
+	}
+
+	if taskFileExists(SHELL_TASK, "Beta") {
+		t.Error("updating must not create a second file under the name field")
+	}
+}
+
+func TestGetTasksWarnsAboutADivergedTask(t *testing.T) {
+	setupLogTestEnv(t)
+	setupTestEnv(t)
+	setupTaskDirs(t)
+	InitLogger()
+
+	writeRawTaskFile(t, SHELL_TASK, "Alpha.json", `{
+  "name": "Beta",
+  "execution": { "interval": { "seconds": 10 }, "is_enabled": true },
+  "command": "echo hi"
+}`)
+
+	if _, err := GetTasks(SHELL_TASK); err != nil {
+		t.Fatalf("GetTasks failed: %v", err)
+	}
+
+	logged, err := os.ReadFile(AppLogFilePath)
+	if err != nil {
+		t.Fatalf("failed to read the app log: %v", err)
+	}
+
+	if !strings.Contains(string(logged), "Alpha.json") {
+		t.Errorf("the mismatch should be reported, got:\n%s", logged)
+	}
+}
+
+func TestABrokenTaskCanStillBeLocatedAndDeleted(t *testing.T) {
+	setupLogTestEnv(t)
+	setupTestEnv(t)
+	setupTaskDirs(t)
+	InitLogger()
+
+	writeRawTaskFile(t, SHELL_TASK, "Broken.json", "{ not json at all")
+
+	if TaskExists(SHELL_TASK, "Broken") {
+		t.Error("an unparsable file is not a usable task")
+	}
+
+	path, err := TaskPath(SHELL_TASK, "Broken")
+	if err != nil {
+		t.Fatalf("TaskPath should work for a broken task: %v", err)
+	}
+	if !strings.HasSuffix(path, "Broken.json") {
+		t.Errorf("unexpected path %q", path)
+	}
+
+	if err := DeleteTask(SHELL_TASK, "Broken"); err != nil {
+		t.Fatalf("DeleteTask should work for a broken task: %v", err)
+	}
+	if taskFileExists(SHELL_TASK, "Broken") {
+		t.Error("the file should be gone")
+	}
+}
+
+func TestCreateTaskRefusesToOverwriteABrokenFile(t *testing.T) {
+	setupLogTestEnv(t)
+	setupTestEnv(t)
+	setupTaskDirs(t)
+	InitLogger()
+
+	writeRawTaskFile(t, SHELL_TASK, "Broken.json", "{ not json at all")
+
+	if _, err := CreateTask("Broken", SHELL_TASK); err == nil {
+		t.Error("CreateTask should refuse when a file already occupies the name")
+	}
+
+	raw, err := os.ReadFile(taskFilePath(SHELL_TASK, "Broken"))
+	if err != nil {
+		t.Fatalf("failed to read the file back: %v", err)
+	}
+	if string(raw) != "{ not json at all" {
+		t.Errorf("the existing file should be untouched, got %q", raw)
+	}
+}
+
+func TestMutatorsDistinguishBrokenFromMissing(t *testing.T) {
+	setupLogTestEnv(t)
+	setupTestEnv(t)
+	setupTaskDirs(t)
+	InitLogger()
+
+	writeRawTaskFile(t, SHELL_TASK, "Broken.json", "{ nope")
+
+	broken := UpdateTaskStatus(SHELL_TASK, "Broken", true)
+	if broken == nil {
+		t.Fatal("expected an error for a broken task")
+	}
+	if !strings.Contains(broken.Error(), "could not be read") {
+		t.Errorf("a broken task should say so, got: %v", broken)
+	}
+
+	missing := UpdateTaskStatus(SHELL_TASK, "NeverExisted", true)
+	if missing == nil {
+		t.Fatal("expected an error for a missing task")
+	}
+	if !strings.Contains(missing.Error(), "does not exist") {
+		t.Errorf("a missing task should say so, got: %v", missing)
+	}
+}
+
+func TestSaveTaskKeepsFileNameAndNameFieldInStep(t *testing.T) {
+	setupTestEnv(t)
+	setupTaskDirs(t)
+
+	task := ShellTask{Name: "Tidy", Execution: Execution{IsEnabled: true}, Command: "echo hi"}
+	if err := SaveTask(task, SHELL_TASK); err != nil {
+		t.Fatalf("SaveTask failed: %v", err)
+	}
+
+	raw, err := os.ReadFile(taskFilePath(SHELL_TASK, "Tidy"))
+	if err != nil {
+		t.Fatalf("the file should be named after the name field: %v", err)
+	}
+
+	var decoded ShellTask
+	if err := json.Unmarshal(raw, &decoded); err != nil {
+		t.Fatalf("failed to decode: %v", err)
+	}
+	if decoded.Name != "Tidy" {
+		t.Errorf("name = %q, want Tidy", decoded.Name)
+	}
+}
+
+func TestTaskFileExistsRejectsUnknownTypesAndDirectories(t *testing.T) {
+	setupTestEnv(t)
+	setupTaskDirs(t)
+
+	if taskFileExists("ftp", "Whatever") {
+		t.Error("an unsupported task type has no files")
+	}
+
+	dir := taskFilePath(SHELL_TASK, "ADirectory")
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		t.Fatalf("failed to create the directory: %v", err)
+	}
+	if taskFileExists(SHELL_TASK, "ADirectory") {
+		t.Error("a directory should not count as a task file")
+	}
+}
+
+func TestTaskPath(t *testing.T) {
+	setupTestEnv(t)
+
+	if _, err := CreateTask("PathProbe", SHELL_TASK); err != nil {
+		t.Fatalf("CreateTask failed: %v", err)
+	}
+
+	path, err := TaskPath(SHELL_TASK, "PathProbe")
+	if err != nil {
+		t.Fatalf("TaskPath failed: %v", err)
+	}
+
+	want := filepath.Join(TaskLocation, SHELL_TASK, "PathProbe.json")
+	if path != want {
+		t.Errorf("TaskPath = %q, want %q", path, want)
+	}
+}
+
+func TestTaskPathRejectsUnknownTask(t *testing.T) {
+	setupTestEnv(t)
+	setupTaskDirs(t)
+
+	if _, err := TaskPath(SHELL_TASK, "NeverCreated"); err == nil {
+		t.Error("TaskPath should error for a task that does not exist")
+	}
+}
+
+func TestTaskPathRejectsUnknownType(t *testing.T) {
+	setupTestEnv(t)
+
+	if _, err := TaskPath("ftp", "Whatever"); err == nil {
+		t.Error("TaskPath should error for an unsupported task type")
 	}
 }

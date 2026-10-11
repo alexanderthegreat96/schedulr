@@ -9,15 +9,18 @@ import (
 )
 
 type Config struct {
-	DevMode               bool
-	LogData               bool
-	WipeLogDataInterval   int
-	WorkerCount           int
-	EnableSchedulrService bool
-	SystemDCommand        string
-	LaunchDCommand        string
-	ServiceName           string
-	env                   *envparser.EnvData
+	DevMode                  bool
+	LogData                  bool
+	WipeLogDataInterval      int
+	WorkerCount              int
+	ReloadIntervalSeconds    int
+	DependencyMaxWaitSeconds int
+	HttpLogBodyLimit         int
+	EnableSchedulrService    bool
+	SystemDCommand           string
+	LaunchDCommand           string
+	ServiceName              string
+	env                      *envparser.EnvData
 }
 
 type ScheduledTask struct {
@@ -37,18 +40,29 @@ type Interval struct {
 }
 
 type Execution struct {
-	Interval  Interval `json:"interval"`
-	Delay     Interval `json:"delay"`
-	LastRanAt string   `json:"last_ran_at"`
-	RunBefore string   `json:"run_before"`
-	RunAfter  string   `json:"run_after"`
-	IsEnabled bool     `json:"is_enabled"`
+	Interval       Interval `json:"interval"`
+	Delay          Interval `json:"delay"`
+	LastRanAt      string   `json:"last_ran_at"`
+	RunBefore      string   `json:"run_before"`
+	RunAfter       string   `json:"run_after"`
+	IsEnabled      bool     `json:"is_enabled"`
+	DependencyOnly bool     `json:"dependency_only"`
+	At             []string `json:"at"`
+	Days           []string `json:"days"`
+	DayOfMonth     []int    `json:"day_of_month"`
+}
+
+// HasCalendarSchedule reports whether the task is anchored to the clock rather
+// than to a duration since its last run.
+func (e Execution) HasCalendarSchedule() bool {
+	return len(e.At) > 0
 }
 
 type ShellTask struct {
 	Name      string    `json:"name"`
 	Execution Execution `json:"execution"`
 	Command   string    `json:"command"`
+	Args      []string  `json:"args"`
 	ShellType string    `json:"shell_type"`
 	IsGui     bool      `json:"is_gui"`
 }
@@ -62,13 +76,11 @@ type HttpTask struct {
 	Body      map[string]any `json:"body"`
 }
 
-// if the type implements the method
-// then it is of type Task
-// which is what we want
 type Task interface {
 	GetName() string
 	GetExecution() Execution
 	GetCommand() string
+	GetArgs() []string
 	GetShellType() string
 	GetIsGui() bool
 	GetURL() string
@@ -108,6 +120,10 @@ func (s ShellTask) GetRunAfter() Task {
 
 func (s ShellTask) GetCommand() string {
 	return s.Command
+}
+
+func (s ShellTask) GetArgs() []string {
+	return s.Args
 }
 
 func (s ShellTask) GetShellType() string { return s.ShellType }
@@ -161,6 +177,8 @@ func (h HttpTask) GetCommand() string {
 	return "not-available"
 }
 
+func (h HttpTask) GetArgs() []string { return nil }
+
 func (h HttpTask) GetShellType() string { return "not-available" }
 
 func (h HttpTask) GetIsGui() bool { return false }
@@ -170,11 +188,12 @@ func (h HttpTask) GetURL() string {
 }
 
 func (h HttpTask) GetMethod() string {
-	if enforceMethods(h.Method) {
-		return h.Method
+	method := strings.ToUpper(strings.TrimSpace(h.Method))
+	if !enforceMethods(method) {
+		return METHOD_UNAVAILABLE
 	}
 
-	return "not-available"
+	return method
 }
 
 func (h HttpTask) GetBody() map[string]any {
@@ -208,12 +227,7 @@ func (e *Execution) GetIsEnabled() bool {
 	return e.IsEnabled
 }
 
-// just making sure that the methods align with the
-// http standars
-// also uppercasing the method input
-// to be parameter safe should the user use
-// "get" instead of "GET" in the json config
 func enforceMethods(method string) bool {
-	availableMethods := []string{METHOD_GET, METHOD_POST, METHOD_PUT, METHOD_PATCH, METHOD_DELETE, METHOD_HEAD}
-	return slices.Contains(availableMethods, strings.ToUpper(method))
+	availableMethods := []string{METHOD_GET, METHOD_POST, METHOD_PUT, METHOD_PATCH, METHOD_DELETE, METHOD_HEAD, METHOD_OPTIONS}
+	return slices.Contains(availableMethods, strings.ToUpper(strings.TrimSpace(method)))
 }

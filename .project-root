@@ -1,0 +1,3 @@
+# Marks this directory as the schedulr root.
+# Required so schedulr.config beside the binary is picked up.
+# Safe to commit, and recreated automatically if deleted.

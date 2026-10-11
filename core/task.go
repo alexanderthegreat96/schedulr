@@ -1,6 +1,7 @@
 package core
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -16,27 +17,28 @@ func NormalizeTaskParams(taskType, taskName string) (string, string) {
 	return taskType, taskName
 }
 
-func TaskExists(taskType, taskName string) bool {
-	taskDir := filepath.Join(TaskLocation, taskType)
-	files, err := os.ReadDir(taskDir)
-	if err != nil {
+func taskFilePath(taskType, taskName string) string {
+	return filepath.Join(TaskLocation, taskType, fmt.Sprintf("%s.json", taskName))
+}
+
+func taskFileExists(taskType, taskName string) bool {
+	if taskType != HTTP_TASK && taskType != SHELL_TASK {
 		return false
 	}
 
-	for _, file := range files {
-		if filepath.Ext(file.Name()) == ".json" {
-			path := filepath.Join(taskDir, file.Name())
-			data, err := fromTaskJson(path, taskType)
-			if err != nil {
-				continue
-			}
+	info, err := os.Stat(taskFilePath(taskType, taskName))
 
-			if data.GetName() == taskName {
-				return true
-			}
-		}
+	return err == nil && !info.IsDir()
+}
+
+func TaskExists(taskType, taskName string) bool {
+	if !taskFileExists(taskType, taskName) {
+		return false
 	}
-	return false
+
+	_, err := fromTaskJson(taskFilePath(taskType, taskName), taskType)
+
+	return err == nil
 }
 
 func GetTasks(taskType string) ([]Task, error) {
@@ -58,7 +60,12 @@ func GetTasks(taskType string) ([]Task, error) {
 			path := filepath.Join(taskDir, file.Name())
 			data, err := fromTaskJson(path, taskType)
 			if err != nil {
+				reportSkippedTaskFile(path, err)
 				continue
+			}
+
+			if base := strings.TrimSuffix(file.Name(), ".json"); data.GetName() != base {
+				reportTaskNameMismatch(path, data.GetName(), base)
 			}
 
 			foundTasks = append(foundTasks, data)
@@ -68,34 +75,63 @@ func GetTasks(taskType string) ([]Task, error) {
 	return foundTasks, nil
 }
 
+func reportSkippedTaskFile(path string, cause error) {
+	message := fmt.Sprintf("Skipping task file %s: %s", path, cause.Error())
+
+	fmt.Fprintln(os.Stderr, message)
+	LogMessageToFile(message, "error", "app", nil)
+}
+
+func reportTaskNameMismatch(path, nameField, fileName string) {
+	message := fmt.Sprintf(
+		"Task file %s has name %q but is addressed as %q; rename the file or the name field so they match",
+		path, nameField, fileName)
+
+	fmt.Fprintln(os.Stderr, message)
+	LogMessageToFile(message, "warn", "app", nil)
+}
+
 func GetTask(taskType, taskName string) (Task, error) {
-	taskDir := filepath.Join(TaskLocation, taskType)
 	if taskType != HTTP_TASK && taskType != SHELL_TASK {
 		return nil, fmt.Errorf("valid task types include: %s | %s", HTTP_TASK, SHELL_TASK)
 	}
 
-	if !TaskExists(taskType, taskName) {
+	taskPath := taskFilePath(taskType, taskName)
+
+	if !taskFileExists(taskType, taskName) {
 		return nil, fmt.Errorf("a %s task with the name %s does not exist", taskType, taskName)
 	}
 
-	taskPath := filepath.Join(taskDir, fmt.Sprintf("%s.json", taskName))
 	data, err := fromTaskJson(taskPath, taskType)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("the %s task file %s could not be read: %w", taskType, taskPath, err)
 	}
 
 	return data, nil
 }
 
+func TaskPath(taskType, taskName string) (string, error) {
+	if taskType != HTTP_TASK && taskType != SHELL_TASK {
+		return "", fmt.Errorf("valid task types include: %s | %s", HTTP_TASK, SHELL_TASK)
+	}
+
+	if !taskFileExists(taskType, taskName) {
+		return "", fmt.Errorf("a %s task with the name %s does not exist", taskType, taskName)
+	}
+
+	return taskFilePath(taskType, taskName), nil
+}
+
 func DeleteTask(taskType, taskName string) error {
-	if !TaskExists(taskType, taskName) {
+	if !taskFileExists(taskType, taskName) {
 		return fmt.Errorf("a %s task with the name %s does not exist", taskType, taskName)
 	}
-	return os.Remove(filepath.Join(TaskLocation, taskType, fmt.Sprintf("%s.json", taskName)))
+
+	return os.Remove(taskFilePath(taskType, taskName))
 }
 
 func CreateTask(taskName, taskType string) (string, error) {
-	if TaskExists(taskType, taskName) {
+	if taskFileExists(taskType, taskName) {
 		return "", fmt.Errorf("a %s task with the name %s already exists", taskType, taskName)
 	}
 
@@ -110,11 +146,14 @@ func CreateTask(taskName, taskType string) (string, error) {
 	}
 
 	taskExecution := Execution{
-		Interval:  taskInterval,
-		Delay:     taskInterval,
-		RunBefore: "",
-		RunAfter:  "",
-		LastRanAt: "",
+		Interval:   taskInterval,
+		Delay:      taskInterval,
+		RunBefore:  "",
+		RunAfter:   "",
+		LastRanAt:  "",
+		At:         []string{},
+		Days:       []string{},
+		DayOfMonth: []int{},
 	}
 
 	var taskSource Task
@@ -125,6 +164,7 @@ func CreateTask(taskName, taskType string) (string, error) {
 			Name:      taskName,
 			Execution: taskExecution,
 			Command:   "",
+			Args:      []string{},
 			ShellType: "bash",
 			IsGui:     false,
 		}
@@ -149,41 +189,42 @@ func CreateTask(taskName, taskType string) (string, error) {
 }
 
 func SaveTask(task Task, taskType string) error {
+	return saveTaskAs(task, taskType, task.GetName())
+}
+
+func saveTaskAs(task Task, taskType, taskName string) error {
 	taskDir := filepath.Join(TaskLocation, taskType)
 	if err := os.MkdirAll(taskDir, 0755); err != nil {
 		return fmt.Errorf("failed to create task directory: %w", err)
 	}
 
-	taskPath := filepath.Join(taskDir, fmt.Sprintf("%s.json", task.GetName()))
-
 	data, err := json.MarshalIndent(task, "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to serialize task: %w", err)
 	}
-	return os.WriteFile(taskPath, data, 0644)
+
+	return os.WriteFile(taskFilePath(taskType, taskName), data, 0644)
 }
 
 func UpdateRanAt(taskType, taskName string) error {
-	if !TaskExists(taskType, taskName) {
-		return fmt.Errorf("no task with the name %s of type %s found", taskName, taskType)
-	}
+	return persistLastRanAt(taskType, taskName, time.Now())
+}
 
+func persistLastRanAt(taskType, taskName string, ranAt time.Time) error {
 	task, err := GetTask(taskType, taskName)
 	if err != nil {
-		return fmt.Errorf("unable to get task with name %s of type %s", taskName, taskType)
+		return err
 	}
-
-	now := time.Now()
 
 	switch t := task.(type) {
 	case ShellTask:
-		(&t.Execution).SetLastRanAt(now)
-		if err := SaveTask(t, taskType); err != nil {
+		t.Execution.SetLastRanAt(ranAt)
+		if err := saveTaskAs(t, taskType, taskName); err != nil {
 			return fmt.Errorf("failed to save updated shell task: %w", err)
 		}
 	case HttpTask:
-		(&t.Execution).SetLastRanAt(now)
-		if err := SaveTask(t, taskType); err != nil {
+		t.Execution.SetLastRanAt(ranAt)
+		if err := saveTaskAs(t, taskType, taskName); err != nil {
 			return fmt.Errorf("failed to save updated http task: %w", err)
 		}
 	default:
@@ -194,13 +235,9 @@ func UpdateRanAt(taskType, taskName string) error {
 }
 
 func UpdateTaskStatus(taskType, taskName string, status bool) error {
-	if !TaskExists(taskType, taskName) {
-		return fmt.Errorf("no task with the name %s of type %s found", taskName, taskType)
-	}
-
 	task, err := GetTask(taskType, taskName)
 	if err != nil {
-		return fmt.Errorf("unable to get task with name %s of type %s", taskName, taskType)
+		return err
 	}
 
 	switch t := task.(type) {
@@ -214,7 +251,7 @@ func UpdateTaskStatus(taskType, taskName string, status bool) error {
 		}
 
 		t.Execution.SetIsEnabled(status)
-		if err := SaveTask(t, taskType); err != nil {
+		if err := saveTaskAs(t, taskType, taskName); err != nil {
 			return fmt.Errorf("failed to save updated shell task: %w", err)
 		}
 	case HttpTask:
@@ -226,7 +263,7 @@ func UpdateTaskStatus(taskType, taskName string, status bool) error {
 			}
 		}
 		t.Execution.SetIsEnabled(status)
-		if err := SaveTask(t, taskType); err != nil {
+		if err := saveTaskAs(t, taskType, taskName); err != nil {
 			return fmt.Errorf("failed to save updated http task: %w", err)
 		}
 	default:
@@ -241,6 +278,8 @@ func fromTaskJson(filePath, taskType string) (Task, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to read file: %w", err)
 	}
+
+	data = bytes.TrimPrefix(data, []byte(utf8BOM))
 
 	taskType = strings.ToLower(taskType)
 	switch taskType {

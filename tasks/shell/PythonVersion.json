@@ -1,14 +1,14 @@
 {
   "name": "PythonVersion",
-  "exection": {
+  "execution": {
     "interval": {
       "years": 0,
       "months": 0,
       "weeks": 0,
       "days": 0,
-      "hours": 0,
+      "hours": 24,
       "minutes": 0,
-      "seconds": 5
+      "seconds": 0
     },
     "delay": {
       "years": 0,
@@ -19,10 +19,19 @@
       "minutes": 0,
       "seconds": 0
     },
-    "last_ran_at": "2025-05-02T22:49:15Z",
+    "last_ran_at": "",
     "run_before": "",
     "run_after": "",
-    "is_enabled": false
+    "is_enabled": false,
+    "dependency_only": false,
+    "at": [],
+    "days": [],
+    "day_of_month": []
   },
-  "command": "/usr/bin/python3 --version"
+  "command": "python3",
+  "args": [
+    "--version"
+  ],
+  "shell_type": "",
+  "is_gui": false
 }

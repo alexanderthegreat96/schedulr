@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 	"runtime"
 
 	"github.com/alexanderthegreat96/schedulr/core"
@@ -24,22 +25,40 @@ var rootCmd = &cobra.Command{
 	Long:  longDesc,
 }
 
+// commands whose stdout is meant to be consumed by another tool - command
+// substitution, a pipe, an editor invocation. The banner and the dev-mode
+// notice would corrupt that, so they are suppressed for these.
+var quietCommands = map[string]bool{
+	"task-path": true,
+}
+
+func wantsCleanStdout() bool {
+	if len(os.Args) < 2 {
+		return false
+	}
+
+	return quietCommands[os.Args[1]]
+}
+
 func Execute() {
 	err := core.AutoSetup()
 	if err != nil {
-		fmt.Printf("There was an error trying to auto-setup all files and folders. Error: %s\n", err.Error())
+		fmt.Fprintf(os.Stderr, "There was an error trying to auto-setup all files and folders. Error: %s\n", err.Error())
 	}
 
 	core.InitLogger()
-	schedulr := figure.NewColorFigure("Schedulr", "doom", "blue", false)
-	schedulr.Print()
-	fmt.Println()
 
-	if core.AppConfig().DevMode == true {
-		core.LogMessage("App is running in DEV mode.", "info")
+	if !wantsCleanStdout() {
+		schedulr := figure.NewColorFigure("Schedulr", "doom", "blue", false)
+		schedulr.Print()
+		fmt.Println()
+
+		if core.AppConfig().DevMode {
+			core.LogMessage("App is running in DEV mode.", "info")
+		}
 	}
 
 	if err := rootCmd.Execute(); err != nil {
-		fmt.Println(err)
+		fmt.Fprintln(os.Stderr, err)
 	}
 }

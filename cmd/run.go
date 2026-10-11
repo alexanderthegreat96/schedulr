@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/alexanderthegreat96/schedulr/core"
 	"github.com/spf13/cobra"
@@ -10,7 +11,11 @@ import (
 var runCmd = &cobra.Command{
 	Use:   "run [task_type] [task_name]",
 	Short: "Runs a specified task",
-	Long: `Runs a specified task.
+	Long: `Runs a specified task, immediately and once.
+
+Only the named task runs: its run_before / run_after dependencies are resolved
+by the daemon, not here, so this is not a way to test a dependency chain.
+
 Important: We use kebab-case to pascal-case, which means: my-task-name is converted to MyTaskName
 Example: schedulr run shell my-task-name
 `,
@@ -27,8 +32,16 @@ Example: schedulr run shell my-task-name
 			return
 		}
 
-		core.ExecuteTask(task)
-		core.LogMessage("Task executed succesfuly!. Check it's output in app-logs.", "success")
+		// success used to be reported unconditionally, so a failing task still
+		// said it had worked and exited zero
+		if err := core.ExecuteTask(task); err != nil {
+			// the error already names the task
+			core.LogMessage(fmt.Sprintf("Failed: %s", err.Error()), "error")
+			core.LogMessage(fmt.Sprintf("Check its output in %s.", core.TASK_LOGS_DIR), "info")
+			os.Exit(1)
+		}
+
+		core.LogMessage(fmt.Sprintf("Task executed successfully. Check its output in %s.", core.TASK_LOGS_DIR), "success")
 	},
 }
 

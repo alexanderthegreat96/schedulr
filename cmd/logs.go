@@ -33,12 +33,20 @@ Example:
 		core.InitLogger()
 
 		logType := "app"
-		taskName := "myTask"
+		taskName := ""
 		if len(args) > 0 {
 			logType = strings.ToLower(args[0])
 			if len(args) > 1 {
 				taskName = args[1]
 			}
+		}
+
+		// this used to default to the literal "myTask", so `schedulr logs task`
+		// reported "Error fetching task: MyTask" - a task the user had never
+		// mentioned - instead of saying a name was required
+		if logType == "task" && strings.TrimSpace(taskName) == "" {
+			core.LogMessage("Which task? Usage: schedulr logs task [task_name]", "error")
+			os.Exit(1)
 		}
 
 		var logFilePath string

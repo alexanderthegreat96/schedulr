@@ -6,5 +6,7 @@ package core
 import "os/exec"
 
 func PreventWindowHide(cmd *exec.Cmd) {
-	return
+}
+
+func HideTaskWindow(cmd *exec.Cmd) {
 }

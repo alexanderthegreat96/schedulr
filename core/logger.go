@@ -22,15 +22,24 @@ var (
 	taskLogPaths = make(map[string]string)
 )
 
-// console logger initialization
 func InitLogger() {
-	consoleLogger = log.New(os.Stdout, "", 0)
+	logMutex.Lock()
+	defer logMutex.Unlock()
+
+	initConsoleLogger()
 }
 
-// print message to console
+func initConsoleLogger() {
+	if consoleLogger == nil {
+		consoleLogger = log.New(os.Stdout, "", 0)
+	}
+}
+
 func LogMessage(message, level string) {
 	logMutex.Lock()
 	defer logMutex.Unlock()
+
+	initConsoleLogger()
 
 	color := getColorForLevel(level)
 	timestamp := time.Now().Format("2006-01-02 15:04:05.000")
@@ -70,7 +79,7 @@ func LogMessageToFile(message, level, logType string, task Task) error {
 				return fmt.Errorf("failed to create task log directory: %w", err)
 			}
 
-			f, err := os.OpenFile(logFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+			f, err := os.OpenFile(logFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
 			if err != nil {
 				return fmt.Errorf("failed to open task log file: %w", err)
 			}
@@ -97,7 +106,7 @@ func LogMessageToFile(message, level, logType string, task Task) error {
 				return fmt.Errorf("failed to create app log directory: %w", err)
 			}
 
-			f, err := os.OpenFile(AppLogFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+			f, err := os.OpenFile(AppLogFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
 			if err != nil {
 				return fmt.Errorf("failed to open app log file: %w", err)
 			}
@@ -118,6 +127,28 @@ func LogMessageToFile(message, level, logType string, task Task) error {
 	logger.SetPrefix(header)
 	logger.Println(message)
 	return nil
+}
+
+func ActiveLogPaths() map[string]bool {
+	logMutex.Lock()
+	defer logMutex.Unlock()
+
+	active := make(map[string]bool, len(taskLogFiles)+1)
+
+	if appLogFile != nil {
+		active[filepath.Clean(AppLogFilePath)] = true
+	}
+
+	for key, file := range taskLogFiles {
+		if file == nil {
+			continue
+		}
+		if path, ok := taskLogPaths[key]; ok {
+			active[filepath.Clean(path)] = true
+		}
+	}
+
+	return active
 }
 
 // clear all loggers
@@ -151,9 +182,9 @@ func getOrCreateLogFilePathForTask(task Task) string {
 	}
 
 	timestamp := time.Now().Format("2006-01-02T15-04-05.000Z")
-	RootPath, _ := GetRootDir()
 	name := sanitizeFileName(task.GetName())
-	path := filepath.Join(RootPath, TASK_LOGS_DIR, fmt.Sprintf("%s_%s.log", name, timestamp))
+
+	path := filepath.Join(TasksLogDirPath, fmt.Sprintf("%s_%s.log", name, timestamp))
 
 	taskLogPaths[key] = path
 	return path

@@ -1,5 +1,5 @@
 {
-  "name": "TestTask",
+  "name": "PingApi",
   "execution": {
     "interval": {
       "years": 0,
@@ -7,7 +7,7 @@
       "weeks": 0,
       "days": 0,
       "hours": 0,
-      "minutes": 0,
+      "minutes": 15,
       "seconds": 0
     },
     "delay": {
@@ -22,9 +22,14 @@
     "last_ran_at": "",
     "run_before": "",
     "run_after": "",
-    "is_enabled": false
+    "is_enabled": false,
+    "dependency_only": false,
+    "at": [],
+    "days": [],
+    "day_of_month": []
   },
-  "command": "",
-  "shell_type": "bash",
-  "is_gui": false
+  "url": "https://example.com/health",
+  "method": "GET",
+  "headers": {},
+  "body": {}
 }

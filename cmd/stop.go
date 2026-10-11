@@ -3,29 +3,29 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"runtime"
-	"syscall"
 
 	"github.com/alexanderthegreat96/schedulr/core"
 
 	"github.com/spf13/cobra"
 )
 
-var process *os.Process
-var err error
 var forceFlag bool
 
 var stopCmd = &cobra.Command{
 	Use:   "stop",
 	Short: "Stops the scheduler daemon",
-	Long:  "Stops the schedulr daemon. You may provide --force to wipe the PID file in case you lost it or something happened and that process does not exist anymore.",
-	Args:  cobra.MaximumNArgs(2),
+	Long: `Stops the schedulr daemon.
+
+A PID file whose process is no longer running is detected and removed
+automatically, so --force is rarely needed. It remains as an escape hatch: it
+wipes the PID file without looking at the process at all.`,
+	Args: cobra.MaximumNArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
 		core.InitLogger()
 		core.LogMessage("Daemon shutdown comenced, please wait...", "info")
 
 		if forceFlag {
-			err = core.DeletePidFile()
+			err := core.DeletePidFile()
 			if err != nil {
 				core.LogMessage(fmt.Sprintf("Unable to wipe the PID file: %s", err.Error()), "error")
 			} else {
@@ -61,32 +61,31 @@ var stopCmd = &cobra.Command{
 			return
 		}
 
-		pid, err := core.ReadPidFile()
-		if err != nil {
-			core.LogMessage(fmt.Sprintf("Failed to read PID file: %s", err.Error()), "error")
+		pid, running := core.DaemonRunning()
+		if !running {
+			if stale, removed := core.ClearStalePidFile(); removed {
+				core.LogMessage(fmt.Sprintf("Schedulr was not running; cleared the stale PID file for PID %d.", stale), "success")
+			} else {
+				core.LogMessage("Schedulr is not running.", "warn")
+			}
 			return
 		}
 
-		if runtime.GOOS == "windows" {
-			process, err = core.FindProcess(pid)
-			if err != nil {
-				core.LogMessage(fmt.Sprintf("Failed to find process: %s", err.Error()), "error")
-				return
-			}
-
-		} else {
-			process, err = os.FindProcess(pid)
-			if err != nil || process.Signal(syscall.Signal(0)) != nil {
-				core.LogMessage(fmt.Sprintf("Process check failed: %v", err), "error")
-				return
-			}
+		process, err := os.FindProcess(pid)
+		if err != nil {
+			core.LogMessage(fmt.Sprintf("Failed to find process %d: %s", pid, err.Error()), "error")
+			return
 		}
 
 		if err := process.Kill(); err != nil {
-			core.LogMessage(fmt.Sprintf("Failed to kill process: %s", err.Error()), "error")
-		} else {
-			core.LogMessage(fmt.Sprintf("Killed process with PID %d", pid), "success")
-			core.DeletePidFile()
+			core.LogMessage(fmt.Sprintf("Failed to kill process %d: %s", pid, err.Error()), "error")
+			return
+		}
+
+		core.LogMessage(fmt.Sprintf("Killed process with PID %d", pid), "success")
+
+		if err := core.DeletePidFile(); err != nil {
+			core.LogMessage(fmt.Sprintf("Killed the daemon but could not remove the PID file: %s", err.Error()), "warn")
 		}
 
 		core.LogMessage("Schedulr daemon stopped.", "success")

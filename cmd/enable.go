@@ -36,7 +36,7 @@ Notice: we are using pascal-case.
 
 		err := core.UpdateTaskStatus(taskType, taskName, true)
 		if err != nil {
-			core.LogMessage(fmt.Sprintf("Error disabling task: %s", err), "warning")
+			core.LogMessage(fmt.Sprintf("Error enabling task: %s", err), "warning")
 			return
 		}
 

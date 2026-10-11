@@ -1,0 +1,43 @@
+{
+  "name": "PostWebhook",
+  "execution": {
+    "interval": {
+      "years": 0,
+      "months": 0,
+      "weeks": 0,
+      "days": 0,
+      "hours": 0,
+      "minutes": 0,
+      "seconds": 0
+    },
+    "delay": {
+      "years": 0,
+      "months": 0,
+      "weeks": 0,
+      "days": 0,
+      "hours": 0,
+      "minutes": 0,
+      "seconds": 0
+    },
+    "last_ran_at": "",
+    "run_before": "",
+    "run_after": "",
+    "is_enabled": false,
+    "dependency_only": false,
+    "at": [
+      "06:00"
+    ],
+    "days": [],
+    "day_of_month": [
+      1
+    ]
+  },
+  "url": "https://example.com/webhook",
+  "method": "POST",
+  "headers": {
+    "X-Source": "schedulr"
+  },
+  "body": {
+    "event": "monthly-report"
+  }
+}

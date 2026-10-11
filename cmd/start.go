@@ -17,9 +17,15 @@ var startCmd = &cobra.Command{
 		core.InitLogger()
 		core.LogMessage("Starting daemon, please wait...", "info")
 
-		if core.PidFileExists() {
-			core.LogMessage("Daemon already running. Canceling.", "warn")
+		if pid, running := core.DaemonRunning(); running {
+			core.LogMessage(fmt.Sprintf("Daemon already running with PID %d. Canceling.", pid), "warn")
 			return
+		}
+
+		// a pid file left behind by a crash or a reboot used to block every
+		// later start, which is why the docs had to tell people to delete it
+		if stale, removed := core.ClearStalePidFile(); removed {
+			core.LogMessage(fmt.Sprintf("Cleared a stale PID file left behind by PID %d.", stale), "warn")
 		}
 
 		// support for systemd / launchd only if schedulr service usage is enabled

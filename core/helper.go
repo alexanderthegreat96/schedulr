@@ -101,7 +101,15 @@ func CreatePidFile(pid int) error {
 		return fmt.Errorf("%s already exists", pidFile)
 	}
 
-	os.WriteFile(PidFilePath, []byte(strconv.Itoa(pid)), 0644)
+	contents := strconv.Itoa(pid)
+	if exe, err := os.Executable(); err == nil {
+		contents += "\n" + exe
+	}
+
+	if err := os.WriteFile(PidFilePath, []byte(contents+"\n"), 0644); err != nil {
+		return fmt.Errorf("failed to write %s: %w", pidFile, err)
+	}
+
 	return nil
 }
 
@@ -114,22 +122,98 @@ func DeletePidFile() error {
 }
 
 func ReadPidFile() (int, error) {
+	pid, _, err := readPidFile()
+	return pid, err
+}
+
+func readPidFile() (int, string, error) {
 	if !PidFileExists() {
-		return 0, fmt.Errorf("%s does not exist", pidFile)
+		return 0, "", fmt.Errorf("%s does not exist", pidFile)
 	}
 
 	data, err := os.ReadFile(PidFilePath)
 	if err != nil {
-		return 0, fmt.Errorf("unable to read pid file. error: %e", err)
+		return 0, "", fmt.Errorf("unable to read %s: %w", pidFile, err)
 	}
 
-	pid, err := strconv.Atoi(string(data))
+	lines := strings.Split(strings.ReplaceAll(string(data), "\r\n", "\n"), "\n")
 
+	pid, err := strconv.Atoi(strings.TrimSpace(lines[0]))
 	if err != nil {
-		return 0, fmt.Errorf("invalid pid format. err: %e", err)
+		return 0, "", fmt.Errorf("invalid pid format in %s: %w", pidFile, err)
 	}
 
-	return pid, nil
+	executable := ""
+	if len(lines) > 1 {
+		executable = strings.TrimSpace(lines[1])
+	}
+
+	return pid, executable, nil
+}
+
+func DaemonRunning() (int, bool) {
+	pid, recorded, err := readPidFile()
+	if err != nil {
+		return 0, false
+	}
+
+	if !ProcessAlive(pid) {
+		return pid, false
+	}
+
+	if recorded != "" {
+		if actual, err := ProcessExecutable(pid); err == nil && actual != "" {
+			if !samePath(actual, recorded) {
+				return pid, false
+			}
+		}
+	}
+
+	return pid, true
+}
+
+func WaitForProcessToExit(pid int, timeout time.Duration) bool {
+	deadline := time.Now().Add(timeout)
+
+	for {
+		if !ProcessAlive(pid) {
+			return true
+		}
+
+		if time.Now().After(deadline) {
+			return false
+		}
+
+		time.Sleep(50 * time.Millisecond)
+	}
+}
+
+func ClearStalePidFile() (int, bool) {
+	if !PidFileExists() {
+		return 0, false
+	}
+
+	pid, running := DaemonRunning()
+	if running {
+		return pid, false
+	}
+
+	if err := DeletePidFile(); err != nil {
+		return pid, false
+	}
+
+	return pid, true
+}
+
+func samePath(a, b string) bool {
+	a = filepath.Clean(a)
+	b = filepath.Clean(b)
+
+	if runtime.GOOS == "windows" {
+		return strings.EqualFold(a, b)
+	}
+
+	return a == b
 }
 
 func SetupGracefulShutdown() {
@@ -181,6 +265,10 @@ func NextRunFromNow(exec Execution) time.Duration {
 }
 
 func DescribeSchedule(exec Execution, start time.Time) (string, time.Time) {
+	if exec.HasCalendarSchedule() {
+		return describeCalendarSchedule(exec, start)
+	}
+
 	firstRun := calculateNextRun(start, exec.Delay)
 	if t := exec.GetLastRanAtTime(); t != nil {
 		firstRun = calculateNextRun(*exec.GetLastRanAtTime(), exec.Interval)
@@ -252,34 +340,80 @@ func pluralize(value int, unit string) string {
 	return fmt.Sprintf("%d %ss", value, unit)
 }
 
-// no longer used
 func StartLogWiper(logDir string, interval time.Duration) {
+	if interval <= 0 {
+		LogMessage(fmt.Sprintf("Log wiping disabled for %s (interval is %s)", logDir, interval), "info")
+		return
+	}
+
 	go func() {
 		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
 
-		for {
-			<-ticker.C
-			err := DeleteLogFiles(logDir)
-			if err != nil {
-				fmt.Printf("Error wiping log file (%s): %v\n", logDir, err)
-			} else {
-				fmt.Printf("Log file %s wiped at %s\n", logDir, time.Now().Format(time.RFC3339))
+		for range ticker.C {
+			if err := DeleteStaleLogFiles(logDir); err != nil {
+				LogMessage(fmt.Sprintf("Error wiping logs in %s: %v", logDir, err), "error")
 			}
 		}
 	}()
 }
 
+func DeleteStaleLogFiles(folder string) error {
+	return deleteLogFiles(folder, ActiveLogPaths())
+}
+
 func DeleteLogFiles(folder string) error {
+	_, inUse, err := ClearLogFiles(folder)
+	if err != nil {
+		return err
+	}
+
+	if len(inUse) > 0 {
+		return fmt.Errorf("could not delete %d log file(s) still in use: %s", len(inUse), strings.Join(inUse, ", "))
+	}
+
+	return nil
+}
+
+func ClearLogFiles(folder string) (removed int, inUse []string, err error) {
+	walkErr := filepath.Walk(folder, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if info.IsDir() || filepath.Ext(info.Name()) != ".log" {
+			return nil
+		}
+
+		if err := os.Remove(path); err != nil {
+			inUse = append(inUse, filepath.Base(path))
+			return nil
+		}
+
+		removed++
+
+		return nil
+	})
+
+	return removed, inUse, walkErr
+}
+
+func deleteLogFiles(folder string, keep map[string]bool) error {
 	return filepath.Walk(folder, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
 
-		if !info.IsDir() && filepath.Ext(info.Name()) == ".log" {
-			if err := os.Remove(path); err != nil {
-				return fmt.Errorf("failed to delete %s: %w", path, err)
-			}
+		if info.IsDir() || filepath.Ext(info.Name()) != ".log" {
+			return nil
+		}
+
+		if keep[filepath.Clean(path)] {
+			return nil
+		}
+
+		if err := os.Remove(path); err != nil {
+			return fmt.Errorf("failed to delete %s: %w", path, err)
 		}
 
 		return nil
@@ -391,9 +525,32 @@ func AutoSetup() error {
 		return err
 	}
 
+	err = createProjectRootMarker(RootPath)
+	if err != nil {
+		return err
+	}
+
 	err = createAutoStartScript(RootPath)
 	if err != nil {
 		return err
+	}
+
+	return nil
+}
+
+func createProjectRootMarker(RootPath string) error {
+	markerPath := filepath.Join(RootPath, projectRootMarker)
+
+	if _, err := os.Stat(markerPath); err == nil {
+		return nil
+	}
+
+	contents := "# Marks this directory as the schedulr root.\n" +
+		"# Required so schedulr.config beside the binary is picked up.\n" +
+		"# Safe to commit, and recreated automatically if deleted.\n"
+
+	if err := os.WriteFile(markerPath, []byte(contents), 0644); err != nil {
+		return fmt.Errorf("failed to create %s in %s: %w", projectRootMarker, RootPath, err)
 	}
 
 	return nil
@@ -460,7 +617,7 @@ func KillLaunchDService() error {
 }
 
 func createConfigFile(RootPath string) error {
-	configFilePath := filepath.Join(RootPath, "schedulr.config")
+	configFilePath := filepath.Join(RootPath, configFileName)
 	if _, err := os.Stat(configFilePath); os.IsNotExist(err) {
 		configFileContents := `# ====================
 # Development Settings
@@ -479,6 +636,7 @@ LOG_DATA=true
 
 # Interval (in seconds) for wiping old logs
 # Useful for cleanup in long-running daemons
+# Log files the daemon still has open are never wiped. Set to 0 to disable.
 LOG_WIPE_INTERVAL_SECONDS=100
 
 # ===================
@@ -487,6 +645,21 @@ LOG_WIPE_INTERVAL_SECONDS=100
 
 # Number of parallel worker threads/tasks to run
 WORKER_COUNT=4
+
+# ===================
+# Scheduler Configuration
+# ===================
+
+# How often (in seconds) the daemon re-reads the task files from disk.
+# This is what makes add / enable / disable / remove take effect while the
+# daemon is running, without having to restart it.
+RELOAD_INTERVAL_SECONDS=30
+
+# Longest time (in seconds) a worker will wait for a run_before / run_after
+# dependency to become due. A dependency that is further out than this is
+# skipped for that run, and the task that declared it still executes.
+# Waiting happens on a worker, so an unbounded wait would starve the pool.
+DEPENDENCY_MAX_WAIT_SECONDS=60
 
 # ============================
 # Service Execution Mode
@@ -504,6 +677,15 @@ LAUNCHD_COMMAND=launchctl
 
 # The name of the service (used for systemd or launchctl)
 SERVICE_NAME=schedulr
+
+# ===================
+# Logging Privacy
+# ===================
+
+# Largest HTTP response body, in bytes, written to a task log.
+# Responses can carry tokens and personal data, and logs outlive the request.
+# Set to 0 to keep response bodies out of the logs entirely.
+HTTP_LOG_BODY_LIMIT=2048
 
 		`
 		if err := os.WriteFile(configFilePath, []byte(configFileContents), 0644); err != nil {

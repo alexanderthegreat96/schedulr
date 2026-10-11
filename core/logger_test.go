@@ -1,6 +1,7 @@
 package core
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 )
@@ -19,6 +20,8 @@ func setupLogTestEnv(t *testing.T) {
 	TasksLogDirPath = filepath.Join(tempDir, TASK_LOGS_DIR)
 
 	t.Cleanup(func() {
+		CloseLoggers()
+
 		RootPath = oldRootPath
 		AppLogFilePath = oldAppLogFilePath
 		AppLogDirPath = oldAppLogDirPath
@@ -193,6 +196,26 @@ func TestLogMessageVariousLevels(t *testing.T) {
 		err := LogMessageToFile("test message", level, "app", nil)
 		if err != nil {
 			t.Errorf("failed to log with level %q: %v", level, err)
+		}
+	}
+}
+func TestLogFilesAreNotWorldReadable(t *testing.T) {
+	setupLogTestEnv(t)
+	setupTestEnv(t)
+	InitLogger()
+
+	if err := LogMessageToFile("something", "info", "app", nil); err != nil {
+		t.Fatalf("LogMessageToFile failed: %v", err)
+	}
+
+	info, err := os.Stat(AppLogFilePath)
+	if err != nil {
+		t.Fatalf("failed to stat the app log: %v", err)
+	}
+
+	if os.PathSeparator == '/' {
+		if mode := info.Mode().Perm(); mode&0o077 != 0 {
+			t.Errorf("app log mode = %04o, want no group or other access", mode)
 		}
 	}
 }

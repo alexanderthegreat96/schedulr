@@ -2,6 +2,9 @@ package core
 
 // app related
 const (
+	configFileName    string = "schedulr.config"
+	projectRootMarker string = ".project-root"
+
 	APP_LOGS_DIR    string = "app-logs"
 	TASK_LOGS_DIR   string = "task-logs"
 	TASKS_FOLDER    string = "tasks"
@@ -10,7 +13,8 @@ const (
 	SERVICE_NAME    string = "schedulr"
 )
 
-// status codes
+var utf8BOM = string([]byte{0xEF, 0xBB, 0xBF})
+
 const (
 	METHOD_GET     string = "GET"
 	METHOD_POST    string = "POST"
@@ -25,7 +29,12 @@ const (
 	HTTP_TASK      string = "http"
 )
 
-// colors for the logger
+// the Windows default shell; referenced from shared code, built verbatim in
+// helper_cmdline_windows.go
+const cmdShellName string = "cmd"
+
+const METHOD_UNAVAILABLE string = "not-available"
+
 const (
 	ColorReset     = "\033[0m"
 	ColorRed       = "\033[31m"
@@ -35,9 +44,8 @@ const (
 	ColorOpenGreen = "\033[38;5;48m"
 )
 
-// sys calls for windows
-// unsure if they work
 const (
 	CREATE_NEW_PROCESS_GROUP = 0x00000200
 	DETACHED_PROCESS         = 0x00000008
+	CREATE_NO_WINDOW         = 0x08000000
 )

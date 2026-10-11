@@ -8,7 +8,6 @@ require (
 	github.com/alexanderthegreat96/envparser v1.0.2
 	github.com/common-nighthawk/go-figure v0.0.0-20210622060536-734e95fb86be
 	github.com/spf13/cobra v1.9.1
-	golang.org/x/sys v0.31.0
 )
 
 require (

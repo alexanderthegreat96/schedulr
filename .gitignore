@@ -40,3 +40,11 @@
 
 # Dependency directories (if using vendoring)
 vendor/
+
+# Generated at runtime next to the binary
+schedulr.pid
+auto-start.ps1
+schedulr_autostart.log
+
+# Coverage report from `make test-coverage` (coverage.out is covered by *.out)
+coverage.html

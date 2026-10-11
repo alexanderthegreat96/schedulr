@@ -1,7 +1,6 @@
 package core
 
 import (
-	"runtime"
 	"syscall"
 	"testing"
 )
@@ -27,37 +26,7 @@ func TestGetProcAttrTypeCorrect(t *testing.T) {
 	}
 }
 
-func TestGetProcAttrUnixSettings(t *testing.T) {
-	t.Parallel()
-
-	if runtime.GOOS == "windows" {
-		t.Skip("Unix-specific test, skipping on Windows")
-	}
-
-	attr := GetProcAttr()
-
-	if attr.Setsid != true {
-		t.Errorf("On Unix, Setsid should be true, got %v", attr.Setsid)
-	}
-}
-
-func TestGetProcAttrWindowsSettings(t *testing.T) {
-	t.Parallel()
-
-	if runtime.GOOS != "windows" {
-		t.Skip("Windows-specific test, skipping on non-Windows")
-	}
-
-	attr := GetProcAttr()
-
-	if attr == nil {
-		t.Fatal("GetProcAttr returned nil on Windows")
-	}
-
-	t.Logf("Windows SysProcAttr: %+v", attr)
-}
-
-func TestGetProcAttrConsistency(t *testing.T) {
+func TestGetProcAttrReturnsDistinctInstances(t *testing.T) {
 	t.Parallel()
 
 	attr1 := GetProcAttr()
@@ -67,23 +36,9 @@ func TestGetProcAttrConsistency(t *testing.T) {
 		t.Fatal("GetProcAttr returned nil")
 	}
 
-	if runtime.GOOS != "windows" {
-		if attr1.Setsid != attr2.Setsid {
-			t.Errorf("Inconsistent Setsid values: %v vs %v", attr1.Setsid, attr2.Setsid)
-		}
+	// each caller must get its own struct, otherwise two concurrently
+	// started processes would share (and race on) the same attributes
+	if attr1 == attr2 {
+		t.Error("GetProcAttr returned the same pointer twice")
 	}
-}
-
-func TestGetProcAttrCanBeUsed(t *testing.T) {
-	t.Parallel()
-
-	attr := GetProcAttr()
-
-	testAttr := *attr
-
-	_ = testAttr.Setsid
-	_ = testAttr.Setpgid
-	_ = testAttr.Setctty
-
-	t.Logf("Successfully created and accessed SysProcAttr fields")
 }

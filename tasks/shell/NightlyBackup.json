@@ -1,0 +1,37 @@
+{
+  "name": "NightlyBackup",
+  "execution": {
+    "interval": {
+      "years": 0,
+      "months": 0,
+      "weeks": 0,
+      "days": 0,
+      "hours": 0,
+      "minutes": 0,
+      "seconds": 0
+    },
+    "delay": {
+      "years": 0,
+      "months": 0,
+      "weeks": 0,
+      "days": 0,
+      "hours": 0,
+      "minutes": 0,
+      "seconds": 0
+    },
+    "last_ran_at": "",
+    "run_before": "",
+    "run_after": "",
+    "is_enabled": false,
+    "dependency_only": false,
+    "at": [
+      "03:00"
+    ],
+    "days": [],
+    "day_of_month": []
+  },
+  "command": "echo nightly backup would run here",
+  "args": [],
+  "shell_type": "",
+  "is_gui": false
+}
