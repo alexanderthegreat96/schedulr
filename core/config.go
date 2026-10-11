@@ -17,8 +17,8 @@ func ConfigFilePath() string {
 		}
 	}
 
-	if cwd, err := os.Getwd(); err == nil {
-		return filepath.Join(cwd, configFileName)
+	if exe, err := os.Executable(); err == nil {
+		return filepath.Join(filepath.Dir(exe), configFileName)
 	}
 
 	return configFileName

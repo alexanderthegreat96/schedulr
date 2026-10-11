@@ -25,6 +25,7 @@ Lists all the paths used by Schedulr:
 		core.LogMessage("Listing available paths", "info")
 		core.LogMessage(fmt.Sprintf("Root Path: %s", core.RootPath), "info")
 		core.LogMessage(fmt.Sprintf("Executable Path: %s", execPath), "info")
+		core.LogMessage(fmt.Sprintf("Config Path: %s", core.ConfigFilePath()), "info")
 		core.LogMessage(fmt.Sprintf("Pid File Path: %s", core.PidFilePath), "info")
 		core.LogMessage(fmt.Sprintf("App Log File Path: %s", core.AppLogFilePath), "info")
 		core.LogMessage(fmt.Sprintf("App Log Dir Path: %s", core.AppLogDirPath), "info")
