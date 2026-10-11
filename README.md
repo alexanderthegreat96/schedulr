@@ -103,11 +103,10 @@ A PID file left behind by a reboot or a crash no longer needs clearing by hand:
 `start` checks whether the recorded process is actually alive and removes the
 file itself if it isn't.
 
-> Run it from schedulr's own directory, as above. `schedulr.config` is located
-> relative to the working directory, so starting it from somewhere else makes
-> every setting fall back to its default. The provided `auto-start.sh` /
-> `auto-start.ps1` scripts and the systemd / launchd units below already do
-> this for you.
+> If you setup an alias in your terminal, schedulr should be able to resolve the `schedulr.config` automatically, since it is located
+> relative to the working directory. The provided `auto-start.sh` /
+> `auto-start.ps1` scripts and the systemd / launchd units below do not keep that into account and they cd in the schedulr dir. You may
+> modify them to use your alias if you wish to.
 
 Example on linux: 
 
@@ -551,16 +550,12 @@ HTTP tasks support configurable methods, headers, and optional JSON bodies. Sche
 from the working directory when there is no config beside the binary (the `go run`
 case). Any key left out falls back to its default.
 
-> **Start schedulr from its own directory.** The config file is located relative
+> **You may start Schedulr from it's own dir OR use an alias in your terminal. ** The config file is located relative
 > to the working directory, so launching it from elsewhere makes every setting
-> fall back to its default — silently. The daemon logs the settings it actually
+> fall back to its default — silently. Now. If your alias is set to point directly to that path, it will detect the config file regardless. The daemon logs the settings it actually
 > resolved on startup, so `schedulr logs app` will tell you whether your config
 > was picked up. The bundled auto-start scripts and the systemd / launchd units
 > in this README all set the working directory for you.
->
-> The committed `.project-root` file is part of this: it marks the directory as
-> schedulr's root so the config beside the binary is found. It is recreated
-> automatically if deleted, and is safe to commit.
 
 | Key                           | Default      | Description                                                                                                                                                              |
 |-------------------------------|--------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
