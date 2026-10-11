@@ -1,5 +1,7 @@
 # Schedulr - A Modern Task Scheduler
 
+[![tests](https://github.com/alexanderthegreat96/schedulr/actions/workflows/ci.yml/badge.svg)](https://github.com/alexanderthegreat96/schedulr/actions/workflows/ci.yml)
+
 Schedulr is a lightweight, crontab-inspired task scheduler that executes tasks based on JSON configurations. It supports shell commands and HTTP requests, running as a daemon with configurable execution intervals.
 
 ![schedulr-preview.png](schedulr-preview.png)
